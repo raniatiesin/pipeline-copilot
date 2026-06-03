@@ -1,65 +1,121 @@
-# Welcome to your Expo app 👋
+# Style Selector App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A streamlined Expo/React Native app for freelance clients to discover and select visual styles that match their preferences.
 
-## Get started
+## Setup Instructions
 
-To start the app, in your terminal run:
+### 1. Environment Variables
 
-```bash
-npm run start
+Create a `.env` file in the root directory and add your API credentials:
+
+```env
+EXPO_PUBLIC_SUPABASE_URL=your_supabase_project_url
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+EXPO_PUBLIC_N8N_WEBHOOK_URL=your_n8n_webhook_url
 ```
 
-In the output, you'll find options to open the app in:
+### 2. Database Setup (Supabase)
 
-- [a development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [an Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [an iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+1. Create a new Supabase project
+2. Run the SQL schema from `supabase-schema.sql` in your Supabase SQL editor
+3. Copy your project URL and anon key to the `.env` file
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### 3. API Integration (n8n)
 
-## Workflows
+Set up an n8n workflow that:
+- Accepts POST requests with: `clientName`, `textPrompt`, `selectedTags`
+- Returns JSON response with: `{ "images": [{ "id": "string", "url": "string" }] }`
 
-This project is configured to use [EAS Workflows](https://docs.expo.dev/eas/workflows/get-started/) to automate some development and release processes. These commands are set up in [`package.json`](./package.json) and can be run using NPM scripts in your terminal.
-
-### Previews
-
-Run `npm run draft` to [publish a preview update](https://docs.expo.dev/eas/workflows/examples/publish-preview-update/) of your project, which can be viewed in Expo Go or in a development build.
-
-### Development Builds
-
-Run `npm run development-builds` to [create a development build](https://docs.expo.dev/eas/workflows/examples/create-development-builds/). Note - you'll need to follow the [Prerequisites](https://docs.expo.dev/eas/workflows/examples/create-development-builds/#prerequisites) to ensure you have the correct emulator setup on your machine.
-
-### Production Deployments
-
-Run `npm run deploy` to [deploy to production](https://docs.expo.dev/eas/workflows/examples/deploy-to-production/). Note - you'll need to follow the [Prerequisites](https://docs.expo.dev/eas/workflows/examples/deploy-to-production/#prerequisites) to ensure you're set up to submit to the Apple and Google stores.
-
-## Hosting
-
-Expo offers hosting for websites and API functions via EAS Hosting. See the [Getting Started](https://docs.expo.dev/eas/hosting/get-started/) guide to learn more.
-
-
-## Get a fresh project
-
-When you're ready, run:
+### 4. Installation & Running
 
 ```bash
-npm run reset-project
+# Install dependencies
+npm install
+
+# Start the development server
+npx expo start
+
+# Run on specific platforms
+npx expo start --ios     # iOS Simulator
+npx expo start --android # Android Emulator  
+npx expo start --web     # Web browser
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## App Flow
 
-## Learn more
+1. **Welcome Screen** (`/`) - Client enters their name
+2. **Input Screen** (`/input`) - Describe style preferences + select tags
+3. **Results Screen** (`/results`) - Grid of matching style images
+4. **Confirmation Screen** (`/confirmation`) - Selected style confirmation
 
-To learn more about developing your project with Expo, look at the following resources:
+## Tech Stack
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- **Frontend**: Expo (React Native)
+- **Database**: Supabase
+- **API Integration**: n8n webhook
+- **Navigation**: Expo Router (file-based routing)
+- **Styling**: Custom design system with TypeScript
 
-## Join the community
+## Project Structure
 
-Join our community of developers creating universal apps.
+```
+/app/                 # Expo Router screens
+  index.tsx           # Welcome screen
+  input.tsx           # Style input form
+  results.tsx         # Style results grid
+  confirmation.tsx    # Selection confirmation
+  _layout.tsx         # Root layout
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+/components/ui/       # Reusable UI components
+  Button.tsx          # Primary/secondary buttons
+  Tag.tsx             # Selectable style tags
+
+/lib/api/            # API integrations
+  supabase.ts        # Database operations
+  n8n.ts             # Style search API
+
+/styles/             # Shared styling helpers
+  common.ts          # Reusable screen/text styles
+
+/types/              # TypeScript definitions
+/constants/          # Theme, colors, style tags
+```
+
+## Design Philosophy
+
+- **Minimal & Clean** - Professional appearance with lots of white space
+- **Functional First** - No decorative elements, focus on usability  
+- **Mobile Optimized** - Touch-friendly interface with proper sizing
+- **Accessible** - Clear typography and good contrast ratios
+
+## API Response Format
+
+Your n8n webhook should return:
+
+```json
+{
+  "success": true,
+  "images": [
+    {
+      "id": "unique-style-id",
+      "url": "https://example.com/style-image.jpg",
+      "title": "Optional Style Title"
+    }
+  ]
+}
+```
+
+## Database Schema
+
+The app stores client sessions with:
+- Client name and search prompt
+- Selected style tags (JSON array)
+- Final selected style ID and URL
+- Timestamp for analytics
+
+## Development Notes
+
+- Uses TypeScript for type safety
+- Implements proper error handling for network issues
+- Responsive design works on phones and tablets
+- Follows Expo best practices for cross-platform compatibility
