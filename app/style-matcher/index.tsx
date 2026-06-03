@@ -14,16 +14,17 @@
 import { Feather } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { 
-  Dimensions, ScrollView, StyleSheet, Text, 
-  TouchableOpacity, View, Animated, LayoutAnimation
+import {
+    Dimensions,
+    LayoutAnimation,
+    ScrollView, StyleSheet, Text,
+    TouchableOpacity, View
 } from 'react-native';
 
 import { ScreenLayout } from '@/components/ui/ScreenLayout';
-import { Button } from '@/components/ui/Button';
-import { styleMatcherData } from '@/constants/styleMatcherData';
-import { colors, spacing, typography, borderRadius } from '@/constants/theme';
 import { getLineThickness } from '@/constants/line';
+import { styleMatcherData } from '@/constants/styleMatcherData';
+import { borderRadius, colors, spacing, typography } from '@/constants/theme';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 

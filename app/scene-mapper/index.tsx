@@ -17,8 +17,8 @@ import React, { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ScreenLayout } from '@/components/ui/ScreenLayout';
-import { colors, spacing, typography, borderRadius } from '@/constants/theme';
 import { getLineThickness } from '@/constants/line';
+import { borderRadius, colors, spacing, typography } from '@/constants/theme';
 import { useSceneSegmentation } from '@/hooks/useSceneSegmentation';
 
 // ============================================

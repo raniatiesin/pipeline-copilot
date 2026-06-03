@@ -33,7 +33,7 @@ export default function SubjectMapperScreen() {
     <ScreenLayout
       tabs={[
         { label: 'Project', route: '/project' },
-        { label: 'Segmentation', route: '/scene-segmentation' },
+        { label: 'Segmentation', route: '/scene-segmentation/input' },
       ]}
       title="Subject"
       progress={66}

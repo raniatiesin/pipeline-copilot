@@ -33,7 +33,7 @@ export default function SceneSegmentationInputScreen() {
   const handleGetStarted = () => {
     if (!state.originalScript.trim()) return;
     processScript();
-    router.push('/scene-segmentation/scene-mapper');
+    router.push('/scene-segmentation/scene-segmentor');
   };
 
   const handlePaste = async () => {
@@ -73,14 +73,14 @@ export default function SceneSegmentationInputScreen() {
           headerShown: false,
         }}
       />
-      <ScreenLayout
+        <ScreenLayout
         tabs={[
           { label: 'Project', route: '/project' },
-          { label: 'Segmentation', route: '/scene-segmentation' },
+          { label: 'Segmentation', route: '/scene-segmentation/input' },
         ]}
         title="Paste"
         progress={progress}
-        onBack={() => router.push('/scene-segmentation')}
+        onBack={() => router.push('/project')}
         onContinue={handleGetStarted}
         continueLabel="Continue"
         continueDisabled={!state.originalScript.trim()}

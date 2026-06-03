@@ -277,7 +277,7 @@ export default function SceneMapperScreen() {
   // ── Navigation ──
 
   const handleContinue = useCallback(() => {
-    router.push('/scene-segmentation/subject-mapper');
+    router.push('/scene-segmentation/subject-segmentor');
   }, []);
 
   const handleBack = useCallback(() => {
@@ -300,7 +300,7 @@ export default function SceneMapperScreen() {
     <ScreenLayout
       tabs={[
         { label: 'Project', route: '/project' },
-        { label: 'Segmentation', route: '/scene-segmentation' },
+        { label: 'Segmentation', route: '/scene-segmentation/input' },
       ]}
       title="Scene"
       progress={33}
