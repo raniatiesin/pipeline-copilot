@@ -1,116 +1,275 @@
 /**
  * ============================================
- * STYLE MATCHER MODULE - KANBAN VIEW
+ * STYLE SELECTOR - GALLERY & FILTERS
  * ============================================
  * 
- * Module overview showing all style question stages
- * in a Kanban board view. Uses ScreenLayout for universal
- * Header → LINE → Content → LINE → Footer.
+ * Unified interface for style selection.
+ * Features a masonry/grid gallery of style collages
+ * and an expandable bottom-sheet for filtering down
+ * 690 collages based on visual questions.
  * 
  * @module app/style-matcher/index
  */
 
+import { Feather } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
+import { 
+  Dimensions, ScrollView, StyleSheet, Text, 
+  TouchableOpacity, View, Animated, LayoutAnimation
+} from 'react-native';
 
-import { KanbanBoard } from '@/components/kanban';
 import { ScreenLayout } from '@/components/ui/ScreenLayout';
-import { KANBAN_STATUS, KANBAN_STATUS_ORDER } from '@/constants/kanbanStatus';
+import { Button } from '@/components/ui/Button';
 import { styleMatcherData } from '@/constants/styleMatcherData';
-import { KanbanProvider } from '@/hooks/useKanban';
-import type { KanbanItem } from '@/types/kanban';
+import { colors, spacing, typography, borderRadius } from '@/constants/theme';
+import { getLineThickness } from '@/constants/line';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // ============================================
-// STAGE METADATA (icon, description, priority)
+// MOCK DATA (will be 690 actual collages)
 // ============================================
-
-/** Kanban-specific metadata keyed by question id. */
-const STAGE_META: Record<string, { icon: string; description: string; priority: 'low' | 'medium' | 'high' }> = {
-  vibe:        { icon: 'heart',   description: 'Define the overall mood and feeling you want to communicate in your visuals.', priority: 'high' },
-  realism:     { icon: 'eye',     description: 'Choose how realistic or stylized your visual content should appear.',          priority: 'high' },
-  texture:     { icon: 'layers',  description: 'Select the surface quality and tactile feel of your visual elements.',         priority: 'medium' },
-  color:       { icon: 'droplet', description: 'Pick your color scheme, saturation levels, and overall color mood.',           priority: 'medium' },
-  light:       { icon: 'sun',     description: 'Define the light quality, direction, and atmospheric lighting effects.',       priority: 'medium' },
-  form:        { icon: 'box',     description: 'Choose the geometric qualities and structural style of objects.',              priority: 'medium' },
-  composition: { icon: 'grid',    description: 'Set the framing, balance, and visual arrangement of elements.',               priority: 'medium' },
-  mood:        { icon: 'cloud',   description: 'Fine-tune the emotional atmosphere and tonal quality of your visuals.',        priority: 'medium' },
-  movement:    { icon: 'wind',    description: 'Define how motion and energy are conveyed in your visual style.',              priority: 'low' },
-  artMovement: { icon: 'feather', description: 'Select an artistic era or movement to influence your visual style.',           priority: 'low' },
-  detail:      { icon: 'zoom-in', description: 'Choose the complexity and intricacy of visual details.',                       priority: 'low' },
-  subject:     { icon: 'user',    description: 'Define how subjects are presented and emphasized in the frame.',               priority: 'low' },
-};
-
-/** Derive Kanban stages from the single-source-of-truth question data. */
-function buildStages(): KanbanItem[] {
-  const now = new Date();
-  return styleMatcherData.map((q) => {
-    const meta = STAGE_META[q.id];
-    return {
-      id: q.id,
-      title: q.title,
-      order: q.order,
-      status: KANBAN_STATUS.TODO,
-      createdAt: now,
-      updatedAt: now,
-      moduleId: 'style-selector',
-      progress: 0,
-      ...(meta ?? {}),
-    };
-  });
-}
+// We create 20 dummy objects to represent the gallery
+const MOCK_GALLERY = Array.from({ length: 20 }).map((_, i) => ({
+  id: `style-${i}`,
+  color: [colors.highlight.red, colors.highlight.orange, colors.highlight.blue, colors.highlight.yellow][i % 4]
+}));
 
 // ============================================
 // MAIN COMPONENT
 // ============================================
 
-export default function StyleMatcherIndexScreen() {
+export default function StyleSelectorIndexScreen() {
   const router = useRouter();
 
-  const stages = useMemo(() => buildStages(), []);
+  // State
+  const [filterExpanded, setFilterExpanded] = useState(false);
+  const [selectedFilters, setSelectedFilters] = useState<Record<string, string>>({});
 
-  // Calculate progress based on done items
-  const totalItems = stages.length;
-  const doneItems = stages.filter(item => item.status === KANBAN_STATUS.DONE).length;
-  const progress = Math.round((doneItems / totalItems) * 100);
-
-  // Track current page index for Continue button
-  const [currentPageIndex, setCurrentPageIndex] = useState(0);
-
-  const handleItemPress = useCallback((item: KanbanItem) => {
-    router.push(`/style-matcher/${item.order}`);
-  }, [router]);
-
+  // Handlers
   const handleBack = useCallback(() => {
     router.back();
   }, [router]);
 
   const handleContinue = useCallback(() => {
-    // Open the top card of the currently viewed column
-    const currentStatus = KANBAN_STATUS_ORDER[currentPageIndex];
-    if (!currentStatus) return;
-    const items = stages.filter(s => s.status === currentStatus);
-    if (items.length > 0) {
-      handleItemPress(items[0]);
-    }
-  }, [currentPageIndex, handleItemPress, stages]);
+    router.back(); // Or move onto the next project stage 
+  }, [router]);
+
+  const toggleFilters = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setFilterExpanded((prev) => !prev);
+  }, []);
+
+  const toggleFilterOption = useCallback((questionId: string, optionLabel: string) => {
+    setSelectedFilters(prev => ({
+      ...prev,
+      [questionId]: prev[questionId] === optionLabel ? '' : optionLabel
+    }));
+  }, []);
 
   return (
     <ScreenLayout
       tabs={[
         { label: 'Project', route: '/project' },
       ]}
-      title="Selection"
-      progress={progress}
+      title="Style Collages"
       onBack={handleBack}
       onContinue={handleContinue}
     >
       <Stack.Screen options={{ headerShown: false }} />
-      <KanbanProvider initialItems={stages}>
-        <KanbanBoard
-          onItemPress={handleItemPress}
-          onPageChange={setCurrentPageIndex}
-        />
-      </KanbanProvider>
+
+      <View style={styles.container}>
+        
+        {/* GALLERY GRID */}
+        <ScrollView 
+          contentContainerStyle={styles.galleryContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.grid}>
+            {MOCK_GALLERY.map((item) => (
+              <TouchableOpacity key={item.id} style={[styles.collageCard, { backgroundColor: item.color }]}>
+                <View style={styles.collageOverlay}>
+                  <Text style={styles.collageIdText}>{item.id.toUpperCase()}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* BOTTOM SHEET FILTERS */}
+        <View style={[styles.filterSheet, filterExpanded ? styles.filterSheetExpanded : undefined]}>
+          <TouchableOpacity 
+            style={styles.sheetHeader} 
+            onPress={toggleFilters}
+            activeOpacity={0.8}
+          >
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeaderRow}>
+              <Text style={styles.sheetTitle}>
+                Filter Styles {Object.keys(selectedFilters).filter(k => selectedFilters[k]).length > 0 ? `(${Object.keys(selectedFilters).filter(k => selectedFilters[k]).length})` : ''}
+              </Text>
+              <Feather name={filterExpanded ? 'chevron-down' : 'chevron-up'} size={20} color={colors.text.primary} />
+            </View>
+          </TouchableOpacity>
+
+          {filterExpanded && (
+            <ScrollView style={styles.filtersScroll} showsVerticalScrollIndicator={false}>
+              {styleMatcherData.map((q) => (
+                <View key={q.id} style={styles.filterGroup}>
+                  <Text style={styles.filterTitle}>{q.title}</Text>
+                  <View style={styles.filterChipsRow}>
+                    {q.options.map((opt) => {
+                      const isActive = selectedFilters[q.id] === opt.label;
+                      return (
+                        <TouchableOpacity
+                          key={opt.label}
+                          style={[styles.filterChip, isActive && styles.filterChipActive]}
+                          onPress={() => toggleFilterOption(q.id, opt.label)}
+                        >
+                          <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+                            {opt.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+              <View style={styles.filterFooterPadding} />
+            </ScrollView>
+          )}
+        </View>
+
+      </View>
     </ScreenLayout>
   );
 }
+
+// ============================================
+// STYLES
+// ============================================
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  
+  // GALLERY
+  galleryContent: {
+    padding: spacing.md,
+    paddingBottom: 200, // Space for the folded bottom sheet
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  collageCard: {
+    width: '47%',
+    aspectRatio: 0.7,
+    borderRadius: borderRadius.md,
+    borderWidth: getLineThickness('base'),
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  collageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    justifyContent: 'flex-end',
+    padding: spacing.sm,
+  },
+  collageIdText: {
+    ...typography.caption,
+    color: colors.text.inverse,
+    fontWeight: '800',
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+
+  // FILTER SHEET
+  filterSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.surface,
+    borderTopWidth: getLineThickness('thick'),
+    borderTopColor: colors.border,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    maxHeight: SCREEN_HEIGHT * 0.75, // Only extends up to 75% of screen when expanded
+  },
+  filterSheetExpanded: {
+    height: SCREEN_HEIGHT * 0.75,
+  },
+  sheetHeader: {
+    padding: spacing.md,
+    alignItems: 'center',
+    backgroundColor: colors.surfaceMuted,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    borderBottomWidth: getLineThickness('base'),
+    borderBottomColor: colors.border,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.borderMuted,
+    marginBottom: spacing.sm,
+  },
+  sheetHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  sheetTitle: {
+    ...typography.subtitle,
+    color: colors.text.primary,
+  },
+  filtersScroll: {
+    padding: spacing.md,
+  },
+  filterGroup: {
+    marginBottom: spacing.lg,
+  },
+  filterTitle: {
+    ...typography.body,
+    fontWeight: '700',
+    marginBottom: spacing.sm,
+    color: colors.text.secondary,
+  },
+  filterChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  filterChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.borderMuted,
+    backgroundColor: colors.background,
+  },
+  filterChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterChipText: {
+    ...typography.caption,
+    color: colors.text.primary,
+    fontWeight: '600',
+  },
+  filterChipTextActive: {
+    color: colors.text.inverse,
+  },
+  filterFooterPadding: {
+    height: 40,
+  },
+});

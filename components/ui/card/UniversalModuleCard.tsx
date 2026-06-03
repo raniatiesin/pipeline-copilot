@@ -16,10 +16,10 @@
 import { Feather } from '@expo/vector-icons';
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import {
-  StyleSheet,
-  type GestureResponderEvent,
-  type StyleProp,
-  type ViewStyle
+    StyleSheet,
+    type GestureResponderEvent,
+    type StyleProp,
+    type ViewStyle
 } from 'react-native';
 
 import { borderRadius, spacing } from '@/constants/theme';

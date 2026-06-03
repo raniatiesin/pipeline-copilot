@@ -110,14 +110,16 @@ export default function ProjectScreen() {
 
   const handleItemPress = useCallback((item: KanbanItem) => {
     // Navigate to module Kanban view
-    if (item.moduleId === 'style-selector') {
+    if (item.moduleId === 'script-pasting') {
+      router.push('/scene-segmentation/input' as any);
+    } else if (item.moduleId === 'style-selector') {
       router.push('/style-matcher/' as any);
     } else if (item.moduleId === 'scene-segmentor') {
-      router.push('/scene-segmentation');
+      router.push('/scene-segmentation/scene-segmentor' as any);
     } else if (item.moduleId === 'subject-segmentor') {
-      router.push('/scene-segmentation/subject-mapper' as any);
+      router.push('/scene-segmentation/subject-segmentor' as any);
     } else if (item.moduleId === 'scene-mapper') {
-      router.push('/scene-segmentation/scene-mapper' as any);
+      router.push('/scene-mapper/' as any);
     }
   }, [router]);
 

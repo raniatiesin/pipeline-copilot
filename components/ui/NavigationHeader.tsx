@@ -110,6 +110,12 @@ export function NavigationHeader({
 
   return (
     <View style={styles.container}>
+      {/* Top right sync indicator */}
+      <View style={styles.syncDotContainer} accessibilityLabel="Sync Status: Online/Offline">
+        {/* We default to green for now. Will be red when offline functionality is wired. */}
+        <View style={[styles.syncDot, { backgroundColor: colors.success }]} />
+      </View>
+
       {/* Tab Navigation Row */}
       <View style={styles.tabRow}>
         {tabs.map((tab, index) => {
@@ -225,5 +231,22 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.text.primary,
     fontWeight: '600',
+  },
+  syncDotContainer: {
+    position: 'absolute',
+    top: spacing.lg,
+    right: spacing.lg,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100, // Ensure it floats above the header tabs
+  },
+  syncDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
   },
 });
