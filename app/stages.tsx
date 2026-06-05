@@ -8,21 +8,26 @@
  * Entity Editor, Arc Assembler.
  *
  * Receives project context via route params:
- *   - title: prospect name
+ *   - title:    prospect name
  *   - subtitle: post name
- *   - script: raw script text (passed to Beat Butcher on open)
+ *   - script:   raw script text (passed to Beat Butcher on open)
+ *
+ * Registers stageCallbacks.markInReview on mount so work screens
+ * (beat-butcher, entity-editor) can call it via the bridge without
+ * needing direct access to this KanbanProvider.
  *
  * @module app/stages
  */
 
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { KanbanBoard } from '@/components/kanban';
 import { ScreenLayout } from '@/components/ui/ScreenLayout';
 import { KANBAN_STATUS, KANBAN_STATUS_ORDER } from '@/constants/kanbanStatus';
-import { KanbanProvider } from '@/hooks/useKanban';
+import { KanbanProvider, useKanban } from '@/hooks/useKanban';
+import { stageCallbacks } from '@/lib/stageCallbacks';
 import type { KanbanItem } from '@/types/kanban';
 
 // ============================================
@@ -98,14 +103,23 @@ interface StagesContentProps {
 
 function StagesContent({ script, title, subtitle }: StagesContentProps) {
   const router = useRouter();
+  const { markInReview, getItemsByStatus } = useKanban();
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
-  const STAGE_MODULES = buildStageModules();
+
+  // ── Register markInReview callback for work screens ──────────────
+  useEffect(() => {
+    stageCallbacks.setMarkInReview(markInReview);
+    return () => {
+      stageCallbacks.setMarkInReview(null);
+    };
+  }, [markInReview]);
+
+  // ── Card navigation ──────────────────────────────────────────────
 
   const handleItemPress = useCallback((item: KanbanItem) => {
     if (item.moduleId === 'style-selector') {
       router.push('/style-matcher/' as any);
     } else if (item.moduleId === 'beat-butcher') {
-      // Pass script to Beat Butcher's input screen for pre-population
       router.push({
         pathname: '/scene-segmentation/input' as any,
         params: { prefill: script },
@@ -124,15 +138,16 @@ function StagesContent({ script, title, subtitle }: StagesContentProps) {
   const handleContinue = useCallback(() => {
     const currentStatus = KANBAN_STATUS_ORDER[currentPageIndex];
     if (!currentStatus) return;
-    const items = STAGE_MODULES.filter(m => m.status === currentStatus);
+    const items = getItemsByStatus(currentStatus);
     if (items.length > 0) {
       handleItemPress(items[0]);
     }
-  }, [currentPageIndex, handleItemPress, STAGE_MODULES]);
+  }, [currentPageIndex, handleItemPress, getItemsByStatus]);
 
-  const progress = Math.round(
-    (STAGE_MODULES.filter(m => m.status === KANBAN_STATUS.DONE).length / STAGE_MODULES.length) * 100
-  );
+  // ── Progress (count of DONE stage cards) ─────────────────────────
+
+  const doneCount = getItemsByStatus(KANBAN_STATUS.DONE).length;
+  const progress = Math.round((doneCount / 4) * 100);
 
   return (
     <ScreenLayout
@@ -165,16 +180,12 @@ export default function StagesScreen() {
     script?: string;
   }>();
 
-  const projectTitle = title || 'Untitled Project';
-  const projectSubtitle = subtitle || '';
-  const projectScript = script || '';
-
   return (
     <KanbanProvider initialItems={buildStageModules()}>
       <StagesContent
-        title={projectTitle}
-        subtitle={projectSubtitle}
-        script={projectScript}
+        title={title || 'Untitled Project'}
+        subtitle={subtitle || ''}
+        script={script || ''}
       />
     </KanbanProvider>
   );

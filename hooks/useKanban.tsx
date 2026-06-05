@@ -13,14 +13,12 @@
  * - 100% + !approved → IN_REVIEW
  * - 100% + approved → DONE
  *
- * @example
- * ```tsx
- * <KanbanProvider initialItems={items}>
- *   <KanbanBoard />
- * </KanbanProvider>
- *
- * const { state, updateProgress, approveItem } = useKanban();
- * ```
+ * Stage card lifecycle (1D):
+ * - markInReview(moduleId) → sets progress=100, clears downstream outdated
+ * - markDone(moduleId)     → sets progress=100 + isApproved=true
+ * - flagOutdated(moduleId) → sets isOutdated=true on downstream started cards
+ * - clearOutdated(moduleId)→ clears isOutdated on all downstream cards
+ * - Auto-flags downstream when UPDATE_PROGRESS drops a card from 100 → <100
  *
  * @module hooks/useKanban
  */
@@ -54,16 +52,13 @@ const initialState: KanbanState = {
 };
 
 // ============================================
-// STATUS DERIVATION HELPER
+// HELPERS
 // ============================================
 
 /**
- * Derives the status of an item based on its progress and unlock state.
+ * Derives the display status of a single item from its progress + approval.
  */
-function deriveStatus(
-  item: KanbanItem,
-  isUnlocked: boolean,
-): KanbanStatus {
+function deriveStatus(item: KanbanItem, isUnlocked: boolean): KanbanStatus {
   const progress = item.progress ?? 0;
   const isApproved = item.isApproved ?? false;
 
@@ -72,48 +67,89 @@ function deriveStatus(
   } else if (progress > 0 && progress < 100) {
     return KANBAN_STATUS.IN_PROGRESS;
   } else {
-    // progress === 100
     return isApproved ? KANBAN_STATUS.DONE : KANBAN_STATUS.IN_REVIEW;
   }
 }
 
 /**
- * Checks if a module is unlocked based on previous module's progress.
- * First module is always unlocked. Subsequent modules unlock when
- * the previous module reaches 100% progress.
- * Items with a moduleId not in MODULE_ORDER are always unlocked
- * (e.g. project-level items).
+ * Whether a module is unlocked by its predecessor reaching 100%.
+ * Items with a moduleId outside MODULE_ORDER (e.g. 'project') are always unlocked.
+ * The first item in MODULE_ORDER is always unlocked.
  */
 function isModuleUnlocked(
   moduleId: string | undefined,
-  items: Record<string, KanbanItem>
+  items: Record<string, KanbanItem>,
 ): boolean {
   if (!moduleId) return true;
-
   const moduleIndex = MODULE_ORDER.indexOf(moduleId as typeof MODULE_ORDER[number]);
-  // Not in MODULE_ORDER (e.g. 'project') → always unlocked
-  if (moduleIndex < 0) return true;
-  // First stage card → always unlocked
-  if (moduleIndex === 0) return true;
+  if (moduleIndex < 0) return true;   // not a stage card → always unlocked
+  if (moduleIndex === 0) return true;  // first stage → always unlocked
 
   const previousModuleId = MODULE_ORDER[moduleIndex - 1];
-  const previousItem = Object.values(items).find(
-    (item) => item.moduleId === previousModuleId
-  );
-
+  const previousItem = Object.values(items).find(i => i.moduleId === previousModuleId);
   return previousItem ? (previousItem.progress ?? 0) >= 100 : true;
 }
 
 /**
- * Refreshes derived status properties on all items in state.
+ * Returns the index of moduleId in MODULE_ORDER, or -1.
+ */
+function moduleIdx(moduleId: string | undefined): number {
+  if (!moduleId) return -1;
+  return MODULE_ORDER.indexOf(moduleId as typeof MODULE_ORDER[number]);
+}
+
+/**
+ * Re-derives status on every item. Called after every state mutation.
  */
 function applyDerivedStatuses(items: Record<string, KanbanItem>): Record<string, KanbanItem> {
   const result: Record<string, KanbanItem> = {};
   for (const key of Object.keys(items)) {
     const item = items[key];
     const unlocked = isModuleUnlocked(item.moduleId, items);
-    const status = deriveStatus(item, unlocked);
-    result[key] = { ...item, status };
+    result[key] = { ...item, status: deriveStatus(item, unlocked) };
+  }
+  return result;
+}
+
+/**
+ * Applies isOutdated:true to all downstream cards of moduleId that have progress > 0.
+ * Mutates the provided record in place; returns it for convenience.
+ */
+function flagDownstreamOutdated(
+  items: Record<string, KanbanItem>,
+  sourceModuleId: string,
+): Record<string, KanbanItem> {
+  const srcIdx = moduleIdx(sourceModuleId);
+  if (srcIdx < 0) return items;
+
+  const result = { ...items };
+  for (const key of Object.keys(result)) {
+    const item = result[key];
+    const dstIdx = moduleIdx(item.moduleId);
+    if (dstIdx > srcIdx && (item.progress ?? 0) > 0) {
+      result[key] = { ...item, isOutdated: true };
+    }
+  }
+  return result;
+}
+
+/**
+ * Clears isOutdated on all downstream cards of moduleId.
+ */
+function clearDownstreamOutdated(
+  items: Record<string, KanbanItem>,
+  sourceModuleId: string,
+): Record<string, KanbanItem> {
+  const srcIdx = moduleIdx(sourceModuleId);
+  if (srcIdx < 0) return items;
+
+  const result = { ...items };
+  for (const key of Object.keys(result)) {
+    const item = result[key];
+    const dstIdx = moduleIdx(item.moduleId);
+    if (dstIdx > srcIdx && item.isOutdated) {
+      result[key] = { ...item, isOutdated: false };
+    }
   }
   return result;
 }
@@ -124,23 +160,16 @@ function applyDerivedStatuses(items: Record<string, KanbanItem>): Record<string,
 
 function kanbanReducer(state: KanbanState, action: KanbanAction): KanbanState {
   switch (action.type) {
+
     case 'SET_ITEMS': {
       const items: Record<string, KanbanItem> = {};
-      action.payload.forEach((item) => {
-        items[item.id] = item;
-      });
+      action.payload.forEach(item => { items[item.id] = item; });
       return { ...state, items: applyDerivedStatuses(items), isLoading: false };
     }
 
     case 'ADD_ITEM': {
-      const nextItems = {
-        ...state.items,
-        [action.payload.id]: action.payload,
-      };
-      return {
-        ...state,
-        items: applyDerivedStatuses(nextItems),
-      };
+      const nextItems = { ...state.items, [action.payload.id]: action.payload };
+      return { ...state, items: applyDerivedStatuses(nextItems) };
     }
 
     case 'UPDATE_ITEM': {
@@ -151,25 +180,20 @@ function kanbanReducer(state: KanbanState, action: KanbanAction): KanbanState {
         ...state.items,
         [id]: { ...existing, ...updates, updatedAt: new Date() },
       };
-      return {
-        ...state,
-        items: applyDerivedStatuses(nextItems),
-      };
+      return { ...state, items: applyDerivedStatuses(nextItems) };
     }
 
     case 'UPDATE_NOTE': {
       const { id, note } = action.payload;
       const existing = state.items[id];
       if (!existing) return state;
-      const nextItems = {
-        ...state.items,
-        [id]: {
-          ...existing,
-          quickNote: note,
-          updatedAt: new Date(),
-        },
+      return {
+        ...state,
+        items: applyDerivedStatuses({
+          ...state.items,
+          [id]: { ...existing, quickNote: note, updatedAt: new Date() },
+        }),
       };
-      return { ...state, items: applyDerivedStatuses(nextItems) };
     }
 
     case 'DELETE_ITEM': {
@@ -181,33 +205,88 @@ function kanbanReducer(state: KanbanState, action: KanbanAction): KanbanState {
       const { id, progress } = action.payload;
       const existing = state.items[id];
       if (!existing) return state;
-      const clampedProgress = Math.max(0, Math.min(100, progress));
-      const nextItems = {
+      const clamped = Math.max(0, Math.min(100, progress));
+
+      // Auto-flag downstream as outdated when a card drops from IN_REVIEW (100%) to active
+      const wasInReview = (existing.progress ?? 0) === 100 && !existing.isApproved;
+      const isDropping  = clamped < 100;
+
+      let nextItems: Record<string, KanbanItem> = {
         ...state.items,
-        [id]: {
-          ...existing,
-          progress: clampedProgress,
-          updatedAt: new Date(),
-        },
+        [id]: { ...existing, progress: clamped, updatedAt: new Date() },
       };
-      return {
-        ...state,
-        items: applyDerivedStatuses(nextItems),
-      };
+
+      if (wasInReview && isDropping && existing.moduleId) {
+        nextItems = flagDownstreamOutdated(nextItems, existing.moduleId);
+      }
+
+      return { ...state, items: applyDerivedStatuses(nextItems) };
     }
 
     case 'APPROVE_ITEM': {
       const existing = state.items[action.payload];
       if (!existing) return state;
-      const nextItems = {
+      return {
+        ...state,
+        items: applyDerivedStatuses({
+          ...state.items,
+          [action.payload]: { ...existing, isApproved: true, updatedAt: new Date() },
+        }),
+      };
+    }
+
+    case 'MARK_IN_REVIEW': {
+      const { moduleId } = action.payload;
+      const target = Object.values(state.items).find(i => i.moduleId === moduleId);
+      if (!target) return state;
+
+      // Set progress=100 (→ IN_REVIEW) and clear outdated on self + all downstream
+      let nextItems: Record<string, KanbanItem> = {
         ...state.items,
-        [action.payload]: {
-          ...existing,
-          isApproved: true,
+        [target.id]: {
+          ...target,
+          progress: 100,
+          isOutdated: false,
           updatedAt: new Date(),
         },
       };
+      nextItems = clearDownstreamOutdated(nextItems, moduleId);
       return { ...state, items: applyDerivedStatuses(nextItems) };
+    }
+
+    case 'MARK_DONE': {
+      const { moduleId } = action.payload;
+      const target = Object.values(state.items).find(i => i.moduleId === moduleId);
+      if (!target) return state;
+      return {
+        ...state,
+        items: applyDerivedStatuses({
+          ...state.items,
+          [target.id]: {
+            ...target,
+            progress: 100,
+            isApproved: true,
+            isOutdated: false,
+            updatedAt: new Date(),
+          },
+        }),
+      };
+    }
+
+    case 'FLAG_OUTDATED': {
+      const { moduleId } = action.payload;
+      return {
+        ...state,
+        items: applyDerivedStatuses(flagDownstreamOutdated({ ...state.items }, moduleId)),
+      };
+    }
+
+    case 'CLEAR_OUTDATED': {
+      const { moduleId } = action.payload;
+      return {
+        ...state,
+        items: applyDerivedStatuses(clearDownstreamOutdated({ ...state.items }, moduleId)),
+      };
     }
 
     case 'SET_PAGE_INDEX': {
@@ -241,86 +320,111 @@ interface KanbanProviderProps {
 export function KanbanProvider({ children, initialItems = [] }: KanbanProviderProps) {
   const initState = useMemo((): KanbanState => {
     const items: Record<string, KanbanItem> = {};
-    initialItems.forEach((item) => {
-      items[item.id] = item;
-    });
+    initialItems.forEach(item => { items[item.id] = item; });
     return { ...initialState, items };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [state, dispatch] = useReducer(kanbanReducer, initState);
 
   const getItemsByStatus = useCallback(
-    (status: KanbanStatus): KanbanItem[] => {
-      return Object.values(state.items)
-        .filter((item) => {
-          const isUnlocked = isModuleUnlocked(item.moduleId, state.items);
-          const derivedStatus = deriveStatus(item, isUnlocked);
-          return derivedStatus === status;
+    (status: KanbanStatus): KanbanItem[] =>
+      Object.values(state.items)
+        .filter(item => {
+          const unlocked = isModuleUnlocked(item.moduleId, state.items);
+          return deriveStatus(item, unlocked) === status;
         })
         .sort((a, b) => {
-          const aIndex = a.moduleId
-            ? MODULE_ORDER.indexOf(a.moduleId as typeof MODULE_ORDER[number])
-            : 999;
-          const bIndex = b.moduleId
-            ? MODULE_ORDER.indexOf(b.moduleId as typeof MODULE_ORDER[number])
-            : 999;
-          if (aIndex !== bIndex) return aIndex - bIndex;
+          const ai = a.moduleId ? MODULE_ORDER.indexOf(a.moduleId as any) : 999;
+          const bi = b.moduleId ? MODULE_ORDER.indexOf(b.moduleId as any) : 999;
+          if (ai !== bi) return ai - bi;
           return a.order - b.order;
-        });
-    },
-    [state.items]
+        }),
+    [state.items],
   );
 
   const getCountByStatus = useCallback(
-    (status: KanbanStatus): number => {
-      return Object.values(state.items).filter((item) => {
-        const isUnlocked = isModuleUnlocked(item.moduleId, state.items);
-        const derivedStatus = deriveStatus(item, isUnlocked);
-        return derivedStatus === status;
-      }).length;
-    },
-    [state.items]
+    (status: KanbanStatus): number =>
+      Object.values(state.items).filter(item => {
+        const unlocked = isModuleUnlocked(item.moduleId, state.items);
+        return deriveStatus(item, unlocked) === status;
+      }).length,
+    [state.items],
   );
 
-  const updateProgress = useCallback((id: string, progress: number) => {
-    dispatch({ type: 'UPDATE_PROGRESS', payload: { id, progress } });
-  }, []);
+  const updateProgress = useCallback(
+    (id: string, progress: number) =>
+      dispatch({ type: 'UPDATE_PROGRESS', payload: { id, progress } }),
+    [],
+  );
 
-  const approveItem = useCallback((id: string) => {
-    dispatch({ type: 'APPROVE_ITEM', payload: id });
-  }, []);
+  const approveItem = useCallback(
+    (id: string) => dispatch({ type: 'APPROVE_ITEM', payload: id }),
+    [],
+  );
 
-  const updateNote = useCallback((id: string, note: string) => {
-    dispatch({ type: 'UPDATE_NOTE', payload: { id, note } });
-  }, []);
+  const updateNote = useCallback(
+    (id: string, note: string) =>
+      dispatch({ type: 'UPDATE_NOTE', payload: { id, note } }),
+    [],
+  );
 
-  const setPageIndex = useCallback((index: number) => {
-    dispatch({ type: 'SET_PAGE_INDEX', payload: index });
-  }, []);
+  const setPageIndex = useCallback(
+    (index: number) => dispatch({ type: 'SET_PAGE_INDEX', payload: index }),
+    [],
+  );
 
   /**
    * Creates a new project-level KanbanItem.
-   * Progress is set to 10 so status auto-derives to IN_PROGRESS
-   * (master doc §8: projects go directly to In Progress on creation).
+   * progress=10 forces IN_PROGRESS status via deriveStatus.
    */
   const createProject = useCallback((data: CreateProjectData) => {
     const id = `project-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const newItem: KanbanItem = {
-      id,
-      title: data.prospectName,
-      description: data.postName,
-      moduleId: 'project', // not in MODULE_ORDER → always unlocked
-      icon: 'film',
-      status: KANBAN_STATUS.IN_PROGRESS, // overridden by deriveStatus; progress:10 → IN_PROGRESS
-      order: Date.now(),
-      progress: 10,
-      priority: 'high',
-      script: data.script,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    dispatch({ type: 'ADD_ITEM', payload: newItem });
+    dispatch({
+      type: 'ADD_ITEM',
+      payload: {
+        id,
+        title: data.prospectName,
+        description: data.postName,
+        moduleId: 'project',
+        icon: 'film',
+        status: KANBAN_STATUS.IN_PROGRESS,
+        order: Date.now(),
+        progress: 10,
+        priority: 'high',
+        script: data.script,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
   }, []);
+
+  /** Mark stage card IN_REVIEW. Unlocks next card; clears downstream isOutdated. */
+  const markInReview = useCallback(
+    (moduleId: string) =>
+      dispatch({ type: 'MARK_IN_REVIEW', payload: { moduleId } }),
+    [],
+  );
+
+  /** Mark stage card DONE (progress=100 + isApproved=true). */
+  const markDone = useCallback(
+    (moduleId: string) =>
+      dispatch({ type: 'MARK_DONE', payload: { moduleId } }),
+    [],
+  );
+
+  /** Flag all started downstream cards as outdated. */
+  const flagOutdated = useCallback(
+    (moduleId: string) =>
+      dispatch({ type: 'FLAG_OUTDATED', payload: { moduleId } }),
+    [],
+  );
+
+  /** Clear isOutdated from all downstream cards. */
+  const clearOutdated = useCallback(
+    (moduleId: string) =>
+      dispatch({ type: 'CLEAR_OUTDATED', payload: { moduleId } }),
+    [],
+  );
 
   const value: KanbanContextValue = useMemo(
     () => ({
@@ -333,8 +437,25 @@ export function KanbanProvider({ children, initialItems = [] }: KanbanProviderPr
       updateNote,
       setPageIndex,
       createProject,
+      markInReview,
+      markDone,
+      flagOutdated,
+      clearOutdated,
     }),
-    [state, getItemsByStatus, getCountByStatus, updateProgress, approveItem, updateNote, setPageIndex, createProject]
+    [
+      state,
+      getItemsByStatus,
+      getCountByStatus,
+      updateProgress,
+      approveItem,
+      updateNote,
+      setPageIndex,
+      createProject,
+      markInReview,
+      markDone,
+      flagOutdated,
+      clearOutdated,
+    ],
   );
 
   return (

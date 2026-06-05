@@ -39,6 +39,7 @@ import {
   SceneMapperCard,
 } from '../../components/scene-segmentation/scene-mapper';
 import { ScreenLayout } from '../../components/ui/ScreenLayout';
+import { stageCallbacks } from '../../lib/stageCallbacks';
 import { DROP_ZONE_HEIGHT } from '../../constants/sceneMapper';
 import { colors, spacing, typography } from '../../constants/theme';
 import { useSceneSegmentation } from '../../hooks/useSceneSegmentation';
@@ -277,7 +278,8 @@ export default function BeatButcherScreen() {
   // ── Navigation ──
 
   const handleContinue = useCallback(() => {
-    router.push('/scene-segmentation/entity-editor');
+    stageCallbacks.markInReview('beat-butcher');
+    router.back();
   }, []);
 
   const handleBack = useCallback(() => {

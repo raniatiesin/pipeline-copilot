@@ -14,6 +14,7 @@
  */
 
 import { router } from 'expo-router';
+import { stageCallbacks } from '../../lib/stageCallbacks';
 import React, { useCallback, useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -53,7 +54,8 @@ export default function EntityEditorScreen() {
   }, []);
 
   const handleContinue = useCallback(() => {
-    router.replace('/project');
+    stageCallbacks.markInReview('entity-editor');
+    router.back();
   }, []);
 
   return (

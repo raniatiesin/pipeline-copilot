@@ -41,7 +41,6 @@ export interface KanbanStatusConfig {
 
 /**
  * Base Kanban item properties.
- * Extended by specific item types (Project, Module, Stage).
  */
 export interface KanbanItemBase {
   /** Unique identifier */
@@ -80,7 +79,11 @@ export interface KanbanItemMeta {
   priority?: 'low' | 'medium' | 'high';
   /** Quick note content shown from bookmark sheet */
   quickNote?: string;
-  /** Whether the card is outdated because a parent card changed */
+  /**
+   * Whether the card is outdated because an upstream card was re-edited
+   * after this card had already started work. Cleared by markInReview on
+   * the upstream card.
+   */
   isOutdated?: boolean;
   /**
    * Raw script text for project-level items.
@@ -116,7 +119,7 @@ export interface KanbanState {
 
 /**
  * Kanban action types for state management.
- * Note: No drag actions - status is auto-derived from progress.
+ * Note: No drag actions — status is auto-derived from progress.
  */
 export type KanbanAction =
   | { type: 'SET_ITEMS'; payload: KanbanItem[] }
@@ -127,7 +130,28 @@ export type KanbanAction =
   | { type: 'UPDATE_PROGRESS'; payload: { id: string; progress: number } }
   | { type: 'APPROVE_ITEM'; payload: string }
   | { type: 'SET_PAGE_INDEX'; payload: number }
-  | { type: 'SET_LOADING'; payload: boolean };
+  | { type: 'SET_LOADING'; payload: boolean }
+  /**
+   * Explicitly mark a stage card as IN_REVIEW (progress → 100).
+   * Automatically unlocks the next card (downstream unlock via
+   * isModuleUnlocked) and clears isOutdated on all downstream cards.
+   */
+  | { type: 'MARK_IN_REVIEW'; payload: { moduleId: string } }
+  /**
+   * Explicitly mark a stage card as DONE (progress → 100 + isApproved).
+   */
+  | { type: 'MARK_DONE'; payload: { moduleId: string } }
+  /**
+   * Flag all downstream cards of moduleId as outdated.
+   * Only affects cards with progress > 0 (i.e. cards that have been started).
+   * Triggered automatically when a card drops from progress=100 to <100.
+   */
+  | { type: 'FLAG_OUTDATED'; payload: { moduleId: string } }
+  /**
+   * Clear isOutdated flag from all downstream cards of moduleId.
+   * Called by MARK_IN_REVIEW internally.
+   */
+  | { type: 'CLEAR_OUTDATED'; payload: { moduleId: string } };
 
 // ============================================
 // CREATE PROJECT DATA
@@ -155,7 +179,7 @@ export interface KanbanContextValue {
   /** Dispatch action */
   dispatch: React.Dispatch<KanbanAction>;
 
-  // Convenience methods
+  // ── Convenience methods ────────────────────────────────────────────
   /** Get items for a specific status (auto-derived from progress) */
   getItemsByStatus: (status: KanbanStatus) => KanbanItem[];
   /** Get count for a specific status */
@@ -169,11 +193,36 @@ export interface KanbanContextValue {
   /** Set active page index */
   setPageIndex: (index: number) => void;
   /**
-   * Create a new project item in the Projects Kanban.
+   * Create a new project-level KanbanItem in the Projects Kanban.
    * Stores prospect name, post name, and script.
-   * Status auto-derives to IN_PROGRESS on creation.
+   * Status auto-derives to IN_PROGRESS (progress:10).
    */
   createProject: (data: CreateProjectData) => void;
+
+  // ── Stage card lifecycle actions (1D) ─────────────────────────────
+  /**
+   * Mark a stage card IN_REVIEW by moduleId.
+   * Sets progress → 100, unlocks the next card, clears downstream isOutdated flags.
+   * Called by work screens via stageCallbacks when Continue is pressed.
+   */
+  markInReview: (moduleId: string) => void;
+  /**
+   * Mark a stage card DONE by moduleId.
+   * Sets progress → 100 + isApproved → true.
+   * Triggered by the "Mark as Done" button visible only on IN_REVIEW cards.
+   */
+  markDone: (moduleId: string) => void;
+  /**
+   * Flag all downstream cards of moduleId as outdated.
+   * Downstream cards with progress > 0 get isOutdated:true.
+   * Called automatically when UPDATE_PROGRESS drops a card from 100 → <100.
+   */
+  flagOutdated: (moduleId: string) => void;
+  /**
+   * Clear the isOutdated flag on all downstream cards of moduleId.
+   * Called automatically by markInReview.
+   */
+  clearOutdated: (moduleId: string) => void;
 }
 
 // ============================================
@@ -188,7 +237,7 @@ export interface KanbanCardProps {
   item: KanbanItem;
   /** Press handler */
   onPress?: (item: KanbanItem) => void;
-  /** Card width for 4:3 aspect ratio calculation */
+  /** Card width for aspect ratio calculation */
   cardWidth?: number;
 }
 

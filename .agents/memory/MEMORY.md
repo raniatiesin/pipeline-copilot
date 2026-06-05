@@ -1,2 +1,3 @@
 - [SceneSegmentation provider scope](scene-segmentation-scope.md) — useSceneSegmentation is ONLY valid inside app/scene-segmentation/ route group; outside screens must use empty/mock data.
 - [Project-level KanbanItem pattern](kanban-project-item.md) — Non-stage items use moduleId:'project' (not in MODULE_ORDER) + progress:10 to force IN_PROGRESS status via deriveStatus.
+- [Stage callbacks bridge](stage-callbacks-bridge.md) — lib/stageCallbacks.ts is a mutable-ref bridge for cross-route markInReview calls; stages.tsx registers on mount, work screens call it.
