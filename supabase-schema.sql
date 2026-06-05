@@ -1,38 +1,83 @@
--- Supabase SQL Schema for Style Selector App
--- Run this in your Supabase SQL editor to set up the database
+-- ============================================================
+-- PIPELINE COPILOT — SUPABASE SCHEMA
+-- ============================================================
+-- Run this entire file in your Supabase SQL editor.
+-- One row per project. Stage state stored in card_statuses JSON.
+-- PowerSync publication at the bottom must be created after the table.
+-- ============================================================
 
--- Create client_sessions table
-CREATE TABLE client_sessions (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  client_name TEXT NOT NULL,
-  search_prompt TEXT NOT NULL,
-  selected_tags JSONB DEFAULT '[]'::jsonb,
-  selected_style_id TEXT,
-  selected_style_url TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+-- Drop old tables if present
+DROP TABLE IF EXISTS client_sessions CASCADE;
+DROP TABLE IF EXISTS style_selections CASCADE;
+
+-- ============================================================
+-- pipelines table
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS pipelines (
+  id                    UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  prospect_name         TEXT NOT NULL DEFAULT '',
+  post_name             TEXT NOT NULL DEFAULT '',
+  script                TEXT NOT NULL DEFAULT '',
+
+  -- Stage outputs (JSON blobs, populated as the user completes each card)
+  style_selection       JSONB DEFAULT NULL,   -- { collageId, tagTally }
+  beat_butcher_output   JSONB DEFAULT NULL,   -- Scene[]
+  entity_editor_output  JSONB DEFAULT NULL,   -- SubjectCategory[]
+  arc_assembler_output  JSONB DEFAULT NULL,   -- { sceneBriefs[], subjectBriefs[] }
+
+  -- Per-stage card state (progress, approval, outdated, notes)
+  -- Shape: { [moduleId]: { progress, isApproved, isOutdated, quickNote } }
+  card_statuses         JSONB DEFAULT '{}'::jsonb,
+
+  created_at            TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now()) NOT NULL,
+  updated_at            TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now()) NOT NULL
 );
 
--- Create index for faster queries
-CREATE INDEX idx_client_sessions_client_name ON client_sessions(client_name);
-CREATE INDEX idx_client_sessions_created_at ON client_sessions(created_at);
+-- Index for ordered listing
+CREATE INDEX IF NOT EXISTS idx_pipelines_created_at ON pipelines (created_at DESC);
 
--- Enable Row Level Security (RLS)
-ALTER TABLE client_sessions ENABLE ROW LEVEL SECURITY;
+-- ============================================================
+-- Row-level security (anon access — app uses anonymous auth)
+-- ============================================================
 
--- Create policy to allow all operations (adjust based on your security needs)
-CREATE POLICY "Allow all operations on client_sessions" ON client_sessions
-  FOR ALL USING (true);
+ALTER TABLE pipelines ENABLE ROW LEVEL SECURITY;
 
--- Optional: Create a view for recent sessions
-CREATE OR REPLACE VIEW recent_sessions AS
-SELECT 
-  id,
-  client_name,
-  search_prompt,
-  selected_tags,
-  selected_style_id,
-  selected_style_url,
-  created_at
-FROM client_sessions
-ORDER BY created_at DESC
-LIMIT 100;
+DROP POLICY IF EXISTS "allow_all_pipelines" ON pipelines;
+CREATE POLICY "allow_all_pipelines" ON pipelines FOR ALL USING (true) WITH CHECK (true);
+
+-- ============================================================
+-- PowerSync — full replica identity + publication
+-- ============================================================
+
+-- PowerSync requires FULL replica identity to track deletes
+ALTER TABLE pipelines REPLICA IDENTITY FULL;
+
+-- Create (or replace) the PowerSync publication
+-- Name must match what you configured in the PowerSync dashboard
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'powersync') THEN
+    CREATE PUBLICATION powersync FOR TABLE pipelines;
+  ELSE
+    ALTER PUBLICATION powersync ADD TABLE pipelines;
+  END IF;
+END;
+$$;
+
+-- ============================================================
+-- updated_at auto-trigger
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at = timezone('utc', now());
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS pipelines_updated_at ON pipelines;
+CREATE TRIGGER pipelines_updated_at
+  BEFORE UPDATE ON pipelines
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();

@@ -4,7 +4,13 @@
  * ============================================
  *
  * Context provider and hook for Kanban board state.
- * Manages items with auto-derived status based on progress.
+ * Data flows from PowerSync (SQLite, offline-first):
+ *   - No projectId → project mode: watchProjects(), one KanbanItem per pipeline row
+ *   - projectId given → stage mode: watchProject(id), card_statuses JSON → 4 KanbanItems
+ *
+ * Mutations call PowerSync.execute() (tracked + synced to Supabase when online).
+ * Local KanbanItem state is derived by replaying the same derivation logic
+ * (deriveStatus, isModuleUnlocked, applyDerivedStatuses) over the DB rows.
  *
  * Status Derivation Rules:
  * - 0% + locked (previous not at 100%) → TODO
@@ -13,293 +19,98 @@
  * - 100% + !approved → IN_REVIEW
  * - 100% + approved → DONE
  *
- * Stage card lifecycle (1D):
- * - markInReview(moduleId) → sets progress=100, clears downstream outdated
- * - markDone(moduleId)     → sets progress=100 + isApproved=true
- * - flagOutdated(moduleId) → sets isOutdated=true on downstream started cards
- * - clearOutdated(moduleId)→ clears isOutdated on all downstream cards
- * - Auto-flags downstream when UPDATE_PROGRESS drops a card from 100 → <100
- *
  * @module hooks/useKanban
  */
 
 import { KANBAN_STATUS } from '@/constants/kanbanStatus';
 import { MODULE_ORDER } from '@/constants/kanbanTheme';
+import {
+  createProject as dbCreateProject,
+  rowToProjectItem,
+  rowToStageItems,
+  updateProject as dbUpdateProject,
+  watchProject,
+  watchProjects,
+} from '@/lib/database';
+import type { CardStatuses, PipelineRow, StageCardStatus } from '@/lib/database';
 import type {
   CreateProjectData,
-  KanbanAction,
   KanbanContextValue,
   KanbanItem,
-  KanbanState,
   KanbanStatus,
 } from '@/types/kanban';
 import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
-  useReducer,
+  useRef,
+  useState,
 } from 'react';
 
 // ============================================
-// INITIAL STATE
+// STATUS DERIVATION HELPERS (pure, stateless)
 // ============================================
 
-const initialState: KanbanState = {
-  items: {},
-  activePageIndex: 0,
-  isLoading: false,
-};
-
-// ============================================
-// HELPERS
-// ============================================
-
-/**
- * Derives the display status of a single item from its progress + approval.
- */
 function deriveStatus(item: KanbanItem, isUnlocked: boolean): KanbanStatus {
   const progress = item.progress ?? 0;
   const isApproved = item.isApproved ?? false;
 
   if (progress === 0) {
     return isUnlocked ? KANBAN_STATUS.UP_NEXT : KANBAN_STATUS.TODO;
-  } else if (progress > 0 && progress < 100) {
-    return KANBAN_STATUS.IN_PROGRESS;
-  } else {
-    return isApproved ? KANBAN_STATUS.DONE : KANBAN_STATUS.IN_REVIEW;
   }
+  if (progress > 0 && progress < 100) {
+    return KANBAN_STATUS.IN_PROGRESS;
+  }
+  return isApproved ? KANBAN_STATUS.DONE : KANBAN_STATUS.IN_REVIEW;
 }
 
-/**
- * Whether a module is unlocked by its predecessor reaching 100%.
- * Items with a moduleId outside MODULE_ORDER (e.g. 'project') are always unlocked.
- * The first item in MODULE_ORDER is always unlocked.
- */
 function isModuleUnlocked(
   moduleId: string | undefined,
   items: Record<string, KanbanItem>,
 ): boolean {
   if (!moduleId) return true;
-  const moduleIndex = MODULE_ORDER.indexOf(moduleId as typeof MODULE_ORDER[number]);
-  if (moduleIndex < 0) return true;   // not a stage card → always unlocked
-  if (moduleIndex === 0) return true;  // first stage → always unlocked
+  const idx = MODULE_ORDER.indexOf(moduleId as typeof MODULE_ORDER[number]);
+  if (idx < 0) return true;   // not a stage card → always unlocked
+  if (idx === 0) return true;  // first stage → always unlocked
 
-  const previousModuleId = MODULE_ORDER[moduleIndex - 1];
-  const previousItem = Object.values(items).find(i => i.moduleId === previousModuleId);
-  return previousItem ? (previousItem.progress ?? 0) >= 100 : true;
+  const prevId = MODULE_ORDER[idx - 1];
+  const prev = Object.values(items).find(i => i.moduleId === prevId);
+  return prev ? (prev.progress ?? 0) >= 100 : true;
 }
 
-/**
- * Returns the index of moduleId in MODULE_ORDER, or -1.
- */
-function moduleIdx(moduleId: string | undefined): number {
+function applyDerivedStatuses(
+  items: Record<string, KanbanItem>,
+): Record<string, KanbanItem> {
+  const result: Record<string, KanbanItem> = {};
+  for (const key of Object.keys(items)) {
+    const item = items[key];
+    result[key] = { ...item, status: deriveStatus(item, isModuleUnlocked(item.moduleId, items)) };
+  }
+  return result;
+}
+
+/** Returns the MODULE_ORDER index of a moduleId, or -1 */
+function mIdx(moduleId: string | undefined): number {
   if (!moduleId) return -1;
   return MODULE_ORDER.indexOf(moduleId as typeof MODULE_ORDER[number]);
 }
 
-/**
- * Re-derives status on every item. Called after every state mutation.
- */
-function applyDerivedStatuses(items: Record<string, KanbanItem>): Record<string, KanbanItem> {
-  const result: Record<string, KanbanItem> = {};
-  for (const key of Object.keys(items)) {
-    const item = items[key];
-    const unlocked = isModuleUnlocked(item.moduleId, items);
-    result[key] = { ...item, status: deriveStatus(item, unlocked) };
-  }
-  return result;
-}
-
-/**
- * Applies isOutdated:true to all downstream cards of moduleId that have progress > 0.
- * Mutates the provided record in place; returns it for convenience.
- */
-function flagDownstreamOutdated(
-  items: Record<string, KanbanItem>,
-  sourceModuleId: string,
-): Record<string, KanbanItem> {
-  const srcIdx = moduleIdx(sourceModuleId);
-  if (srcIdx < 0) return items;
-
-  const result = { ...items };
-  for (const key of Object.keys(result)) {
-    const item = result[key];
-    const dstIdx = moduleIdx(item.moduleId);
-    if (dstIdx > srcIdx && (item.progress ?? 0) > 0) {
-      result[key] = { ...item, isOutdated: true };
-    }
-  }
-  return result;
-}
-
-/**
- * Clears isOutdated on all downstream cards of moduleId.
- */
-function clearDownstreamOutdated(
-  items: Record<string, KanbanItem>,
-  sourceModuleId: string,
-): Record<string, KanbanItem> {
-  const srcIdx = moduleIdx(sourceModuleId);
-  if (srcIdx < 0) return items;
-
-  const result = { ...items };
-  for (const key of Object.keys(result)) {
-    const item = result[key];
-    const dstIdx = moduleIdx(item.moduleId);
-    if (dstIdx > srcIdx && item.isOutdated) {
-      result[key] = { ...item, isOutdated: false };
-    }
-  }
-  return result;
-}
-
 // ============================================
-// REDUCER
+// CARD STATUSES HELPERS
 // ============================================
 
-function kanbanReducer(state: KanbanState, action: KanbanAction): KanbanState {
-  switch (action.type) {
+const DEFAULT_CARD_STATUS: StageCardStatus = {
+  progress: 0,
+  isApproved: false,
+  isOutdated: false,
+  quickNote: '',
+};
 
-    case 'SET_ITEMS': {
-      const items: Record<string, KanbanItem> = {};
-      action.payload.forEach(item => { items[item.id] = item; });
-      return { ...state, items: applyDerivedStatuses(items), isLoading: false };
-    }
-
-    case 'ADD_ITEM': {
-      const nextItems = { ...state.items, [action.payload.id]: action.payload };
-      return { ...state, items: applyDerivedStatuses(nextItems) };
-    }
-
-    case 'UPDATE_ITEM': {
-      const { id, updates } = action.payload;
-      const existing = state.items[id];
-      if (!existing) return state;
-      const nextItems = {
-        ...state.items,
-        [id]: { ...existing, ...updates, updatedAt: new Date() },
-      };
-      return { ...state, items: applyDerivedStatuses(nextItems) };
-    }
-
-    case 'UPDATE_NOTE': {
-      const { id, note } = action.payload;
-      const existing = state.items[id];
-      if (!existing) return state;
-      return {
-        ...state,
-        items: applyDerivedStatuses({
-          ...state.items,
-          [id]: { ...existing, quickNote: note, updatedAt: new Date() },
-        }),
-      };
-    }
-
-    case 'DELETE_ITEM': {
-      const { [action.payload]: _removed, ...remaining } = state.items;
-      return { ...state, items: applyDerivedStatuses(remaining) };
-    }
-
-    case 'UPDATE_PROGRESS': {
-      const { id, progress } = action.payload;
-      const existing = state.items[id];
-      if (!existing) return state;
-      const clamped = Math.max(0, Math.min(100, progress));
-
-      // Auto-flag downstream as outdated when a card drops from IN_REVIEW (100%) to active
-      const wasInReview = (existing.progress ?? 0) === 100 && !existing.isApproved;
-      const isDropping  = clamped < 100;
-
-      let nextItems: Record<string, KanbanItem> = {
-        ...state.items,
-        [id]: { ...existing, progress: clamped, updatedAt: new Date() },
-      };
-
-      if (wasInReview && isDropping && existing.moduleId) {
-        nextItems = flagDownstreamOutdated(nextItems, existing.moduleId);
-      }
-
-      return { ...state, items: applyDerivedStatuses(nextItems) };
-    }
-
-    case 'APPROVE_ITEM': {
-      const existing = state.items[action.payload];
-      if (!existing) return state;
-      return {
-        ...state,
-        items: applyDerivedStatuses({
-          ...state.items,
-          [action.payload]: { ...existing, isApproved: true, updatedAt: new Date() },
-        }),
-      };
-    }
-
-    case 'MARK_IN_REVIEW': {
-      const { moduleId } = action.payload;
-      const target = Object.values(state.items).find(i => i.moduleId === moduleId);
-      if (!target) return state;
-
-      // Set progress=100 (→ IN_REVIEW) and clear outdated on self + all downstream
-      let nextItems: Record<string, KanbanItem> = {
-        ...state.items,
-        [target.id]: {
-          ...target,
-          progress: 100,
-          isOutdated: false,
-          updatedAt: new Date(),
-        },
-      };
-      nextItems = clearDownstreamOutdated(nextItems, moduleId);
-      return { ...state, items: applyDerivedStatuses(nextItems) };
-    }
-
-    case 'MARK_DONE': {
-      const { moduleId } = action.payload;
-      const target = Object.values(state.items).find(i => i.moduleId === moduleId);
-      if (!target) return state;
-      return {
-        ...state,
-        items: applyDerivedStatuses({
-          ...state.items,
-          [target.id]: {
-            ...target,
-            progress: 100,
-            isApproved: true,
-            isOutdated: false,
-            updatedAt: new Date(),
-          },
-        }),
-      };
-    }
-
-    case 'FLAG_OUTDATED': {
-      const { moduleId } = action.payload;
-      return {
-        ...state,
-        items: applyDerivedStatuses(flagDownstreamOutdated({ ...state.items }, moduleId)),
-      };
-    }
-
-    case 'CLEAR_OUTDATED': {
-      const { moduleId } = action.payload;
-      return {
-        ...state,
-        items: applyDerivedStatuses(clearDownstreamOutdated({ ...state.items }, moduleId)),
-      };
-    }
-
-    case 'SET_PAGE_INDEX': {
-      return { ...state, activePageIndex: action.payload };
-    }
-
-    case 'SET_LOADING': {
-      return { ...state, isLoading: action.payload };
-    }
-
-    default:
-      return state;
-  }
+function parseCardStatuses(json: string | null | undefined): CardStatuses {
+  if (!json) return {};
+  try { return JSON.parse(json) as CardStatuses; } catch { return {}; }
 }
 
 // ============================================
@@ -314,122 +125,270 @@ const KanbanContext = createContext<KanbanContextValue | null>(null);
 
 interface KanbanProviderProps {
   children: React.ReactNode;
+  /** Seed items for immediate first render (before DB responds). */
   initialItems?: KanbanItem[];
+  /**
+   * If provided, the provider operates in STAGE mode:
+   * - Subscribes to watchProject(projectId)
+   * - Maps the row's card_statuses JSON to 4 stage KanbanItems
+   * - All mutations update that row's card_statuses column
+   *
+   * If omitted, operates in PROJECT mode:
+   * - Subscribes to watchProjects()
+   * - Maps each row to one project-level KanbanItem
+   */
+  projectId?: string;
 }
 
-export function KanbanProvider({ children, initialItems = [] }: KanbanProviderProps) {
-  const initState = useMemo((): KanbanState => {
-    const items: Record<string, KanbanItem> = {};
-    initialItems.forEach(item => { items[item.id] = item; });
-    return { ...initialState, items };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+export function KanbanProvider({
+  children,
+  initialItems = [],
+  projectId,
+}: KanbanProviderProps) {
+  // ── Raw DB rows (ref to avoid mutation callbacks recreating on every DB tick) ─
+  const rawRowsRef = useRef<PipelineRow[]>([]);
 
-  const [state, dispatch] = useReducer(kanbanReducer, initState);
+  // ── Derived KanbanItems (what the UI reads) ──────────────────────────────────
+  const [items, setItems] = useState<Record<string, KanbanItem>>(() => {
+    const map: Record<string, KanbanItem> = {};
+    initialItems.forEach(item => { map[item.id] = item; });
+    return applyDerivedStatuses(map);
+  });
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [activePageIndex, setActivePageIndexState] = useState(0);
+
+  // ── PowerSync watched query ───────────────────────────────────────────────────
+  useEffect(() => {
+    let aborted = false;
+
+    const run = async () => {
+      const query = projectId ? watchProject(projectId) : watchProjects();
+
+      for await (const rows of query) {
+        if (aborted) break;
+
+        rawRowsRef.current = rows;
+
+        const newItems: Record<string, KanbanItem> = {};
+
+        if (projectId) {
+          // Stage mode: map the single row's card_statuses to 4 stage items
+          if (rows.length > 0) {
+            rowToStageItems(rows[0]).forEach(item => { newItems[item.id] = item; });
+          }
+        } else {
+          // Project mode: each row is a project-level card
+          rows.map(rowToProjectItem).forEach(item => { newItems[item.id] = item; });
+        }
+
+        setItems(applyDerivedStatuses(newItems));
+        setIsLoading(false);
+      }
+    };
+
+    run().catch(err => {
+      if (!aborted) {
+        console.error('[useKanban] watch error:', err);
+        setIsLoading(false);
+      }
+    });
+
+    return () => { aborted = true; };
+  }, [projectId]);
+
+  // ── Computed selectors ────────────────────────────────────────────────────────
 
   const getItemsByStatus = useCallback(
     (status: KanbanStatus): KanbanItem[] =>
-      Object.values(state.items)
-        .filter(item => {
-          const unlocked = isModuleUnlocked(item.moduleId, state.items);
-          return deriveStatus(item, unlocked) === status;
-        })
+      Object.values(items)
+        .filter(item => item.status === status)
         .sort((a, b) => {
-          const ai = a.moduleId ? MODULE_ORDER.indexOf(a.moduleId as any) : 999;
-          const bi = b.moduleId ? MODULE_ORDER.indexOf(b.moduleId as any) : 999;
+          const ai = mIdx(a.moduleId) >= 0 ? mIdx(a.moduleId) : 999;
+          const bi = mIdx(b.moduleId) >= 0 ? mIdx(b.moduleId) : 999;
           if (ai !== bi) return ai - bi;
           return a.order - b.order;
         }),
-    [state.items],
+    [items],
   );
 
   const getCountByStatus = useCallback(
     (status: KanbanStatus): number =>
-      Object.values(state.items).filter(item => {
-        const unlocked = isModuleUnlocked(item.moduleId, state.items);
-        return deriveStatus(item, unlocked) === status;
-      }).length,
-    [state.items],
+      Object.values(items).filter(item => item.status === status).length,
+    [items],
   );
 
-  const updateProgress = useCallback(
-    (id: string, progress: number) =>
-      dispatch({ type: 'UPDATE_PROGRESS', payload: { id, progress } }),
-    [],
-  );
+  // ── Mutations (all write to PowerSync / SQLite) ───────────────────────────────
 
-  const approveItem = useCallback(
-    (id: string) => dispatch({ type: 'APPROVE_ITEM', payload: id }),
-    [],
-  );
-
-  const updateNote = useCallback(
-    (id: string, note: string) =>
-      dispatch({ type: 'UPDATE_NOTE', payload: { id, note } }),
-    [],
-  );
-
-  const setPageIndex = useCallback(
-    (index: number) => dispatch({ type: 'SET_PAGE_INDEX', payload: index }),
-    [],
-  );
-
-  /**
-   * Creates a new project-level KanbanItem.
-   * progress=10 forces IN_PROGRESS status via deriveStatus.
-   */
-  const createProject = useCallback((data: CreateProjectData) => {
-    const id = `project-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    dispatch({
-      type: 'ADD_ITEM',
-      payload: {
-        id,
-        title: data.prospectName,
-        description: data.postName,
-        moduleId: 'project',
-        icon: 'film',
-        status: KANBAN_STATUS.IN_PROGRESS,
-        order: Date.now(),
-        progress: 10,
-        priority: 'high',
-        script: data.script,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    });
+  /** Creates a new project pipeline row. */
+  const createProject = useCallback(async (data: CreateProjectData) => {
+    await dbCreateProject(data);
   }, []);
 
-  /** Mark stage card IN_REVIEW. Unlocks next card; clears downstream isOutdated. */
-  const markInReview = useCallback(
-    (moduleId: string) =>
-      dispatch({ type: 'MARK_IN_REVIEW', payload: { moduleId } }),
-    [],
-  );
+  /** Updates progress on a stage card (stage mode only). */
+  const updateProgress = useCallback(async (id: string, progress: number) => {
+    if (!projectId) return;
+    const rows = rawRowsRef.current;
+    if (rows.length === 0) return;
 
-  /** Mark stage card DONE (progress=100 + isApproved=true). */
-  const markDone = useCallback(
-    (moduleId: string) =>
-      dispatch({ type: 'MARK_DONE', payload: { moduleId } }),
-    [],
-  );
+    const statuses = parseCardStatuses(rows[0].card_statuses);
+    const clamped = Math.max(0, Math.min(100, progress));
+    const wasInReview = (statuses[id]?.progress ?? 0) === 100 && !statuses[id]?.isApproved;
+    const isDropping = clamped < 100;
+    const srcIdx = mIdx(id);
 
-  /** Flag all started downstream cards as outdated. */
-  const flagOutdated = useCallback(
-    (moduleId: string) =>
-      dispatch({ type: 'FLAG_OUTDATED', payload: { moduleId } }),
-    [],
-  );
+    const next: CardStatuses = { ...statuses };
+    next[id] = { ...(statuses[id] ?? DEFAULT_CARD_STATUS), progress: clamped };
 
-  /** Clear isOutdated from all downstream cards. */
-  const clearOutdated = useCallback(
-    (moduleId: string) =>
-      dispatch({ type: 'CLEAR_OUTDATED', payload: { moduleId } }),
-    [],
-  );
+    // Auto-flag downstream as outdated when progress drops from IN_REVIEW
+    if (wasInReview && isDropping && srcIdx >= 0) {
+      (MODULE_ORDER as readonly string[]).forEach((m, i) => {
+        if (i > srcIdx && (next[m]?.progress ?? 0) > 0) {
+          next[m] = { ...(next[m] ?? DEFAULT_CARD_STATUS), isOutdated: true };
+        }
+      });
+    }
+
+    await dbUpdateProject(projectId, { card_statuses: JSON.stringify(next) });
+  }, [projectId]);
+
+  /** Approves a stage card — marks it DONE (stage mode only). */
+  const approveItem = useCallback(async (id: string) => {
+    if (!projectId) return;
+    const rows = rawRowsRef.current;
+    if (rows.length === 0) return;
+
+    const statuses = parseCardStatuses(rows[0].card_statuses);
+    const next: CardStatuses = {
+      ...statuses,
+      [id]: { ...(statuses[id] ?? DEFAULT_CARD_STATUS), isApproved: true },
+    };
+    await dbUpdateProject(projectId, { card_statuses: JSON.stringify(next) });
+  }, [projectId]);
+
+  /** Updates quick note for a stage card (stage mode only). */
+  const updateNote = useCallback(async (id: string, note: string) => {
+    if (!projectId) return;
+    const rows = rawRowsRef.current;
+    if (rows.length === 0) return;
+
+    const statuses = parseCardStatuses(rows[0].card_statuses);
+    const next: CardStatuses = {
+      ...statuses,
+      [id]: { ...(statuses[id] ?? DEFAULT_CARD_STATUS), quickNote: note },
+    };
+    await dbUpdateProject(projectId, { card_statuses: JSON.stringify(next) });
+  }, [projectId]);
+
+  const setPageIndex = useCallback((index: number) => {
+    setActivePageIndexState(index);
+  }, []);
+
+  /**
+   * Mark a stage card IN_REVIEW by moduleId.
+   * Sets progress → 100, unlocks next card, clears downstream isOutdated.
+   */
+  const markInReview = useCallback(async (moduleId: string) => {
+    if (!projectId) return;
+    const rows = rawRowsRef.current;
+    if (rows.length === 0) return;
+
+    const statuses = parseCardStatuses(rows[0].card_statuses);
+    const srcIdx = mIdx(moduleId);
+    const next: CardStatuses = { ...statuses };
+
+    next[moduleId] = {
+      ...(statuses[moduleId] ?? DEFAULT_CARD_STATUS),
+      progress: 100,
+      isOutdated: false,
+    };
+
+    // Clear isOutdated on all downstream cards
+    (MODULE_ORDER as readonly string[]).forEach((m, i) => {
+      if (i > srcIdx && next[m]) {
+        next[m] = { ...next[m], isOutdated: false };
+      }
+    });
+
+    await dbUpdateProject(projectId, { card_statuses: JSON.stringify(next) });
+  }, [projectId]);
+
+  /**
+   * Mark a stage card DONE by moduleId (progress=100 + isApproved=true).
+   */
+  const markDone = useCallback(async (moduleId: string) => {
+    if (!projectId) return;
+    const rows = rawRowsRef.current;
+    if (rows.length === 0) return;
+
+    const statuses = parseCardStatuses(rows[0].card_statuses);
+    const next: CardStatuses = {
+      ...statuses,
+      [moduleId]: {
+        ...(statuses[moduleId] ?? DEFAULT_CARD_STATUS),
+        progress: 100,
+        isApproved: true,
+        isOutdated: false,
+      },
+    };
+
+    await dbUpdateProject(projectId, { card_statuses: JSON.stringify(next) });
+  }, [projectId]);
+
+  /**
+   * Flag all started downstream cards of moduleId as outdated.
+   */
+  const flagOutdated = useCallback(async (moduleId: string) => {
+    if (!projectId) return;
+    const rows = rawRowsRef.current;
+    if (rows.length === 0) return;
+
+    const statuses = parseCardStatuses(rows[0].card_statuses);
+    const srcIdx = mIdx(moduleId);
+    if (srcIdx < 0) return;
+
+    const next: CardStatuses = { ...statuses };
+    (MODULE_ORDER as readonly string[]).forEach((m, i) => {
+      if (i > srcIdx && (next[m]?.progress ?? 0) > 0) {
+        next[m] = { ...(next[m] ?? DEFAULT_CARD_STATUS), isOutdated: true };
+      }
+    });
+
+    await dbUpdateProject(projectId, { card_statuses: JSON.stringify(next) });
+  }, [projectId]);
+
+  /**
+   * Clear isOutdated flag from all downstream cards of moduleId.
+   */
+  const clearOutdated = useCallback(async (moduleId: string) => {
+    if (!projectId) return;
+    const rows = rawRowsRef.current;
+    if (rows.length === 0) return;
+
+    const statuses = parseCardStatuses(rows[0].card_statuses);
+    const srcIdx = mIdx(moduleId);
+    if (srcIdx < 0) return;
+
+    const next: CardStatuses = { ...statuses };
+    (MODULE_ORDER as readonly string[]).forEach((m, i) => {
+      if (i > srcIdx && next[m]?.isOutdated) {
+        next[m] = { ...next[m], isOutdated: false };
+      }
+    });
+
+    await dbUpdateProject(projectId, { card_statuses: JSON.stringify(next) });
+  }, [projectId]);
+
+  // ── Context value ─────────────────────────────────────────────────────────────
 
   const value: KanbanContextValue = useMemo(
     () => ({
-      state,
-      dispatch,
+      state: {
+        items,
+        activePageIndex,
+        isLoading,
+      },
+      dispatch: () => {},  // legacy — not used; mutations go through named methods
       getItemsByStatus,
       getCountByStatus,
       updateProgress,
@@ -443,7 +402,9 @@ export function KanbanProvider({ children, initialItems = [] }: KanbanProviderPr
       clearOutdated,
     }),
     [
-      state,
+      items,
+      activePageIndex,
+      isLoading,
       getItemsByStatus,
       getCountByStatus,
       updateProgress,
@@ -469,10 +430,6 @@ export function KanbanProvider({ children, initialItems = [] }: KanbanProviderPr
 // HOOK
 // ============================================
 
-/**
- * Access Kanban board state and actions.
- * Must be used within a KanbanProvider.
- */
 export function useKanban(): KanbanContextValue {
   const context = useContext(KanbanContext);
   if (!context) {

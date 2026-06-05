@@ -1,0 +1,108 @@
+/**
+ * ============================================
+ * POWERSYNC CLIENT
+ * ============================================
+ *
+ * PowerSync database + connector setup.
+ *
+ * Schema mirrors the Supabase `pipelines` table.
+ * One row per project — stage state stored as JSON in card_statuses.
+ *
+ * env vars:
+ *   EXPO_PUBLIC_POWERSYNC_URL  — your PowerSync instance endpoint
+ *
+ * @module lib/powersync
+ */
+
+import type { AbstractPowerSyncDatabase, PowerSyncBackendConnector } from '@powersync/react-native';
+import { PowerSyncDatabase, Schema, Table, column } from '@powersync/react-native';
+import { supabase, getSupabaseToken } from './supabase';
+
+// ============================================
+// SCHEMA
+// ============================================
+
+/**
+ * Mirrors the Supabase `pipelines` table.
+ * Note: `id` is implicit in PowerSync — do not declare it here.
+ */
+const pipelines = new Table({
+  prospect_name:        column.text,
+  post_name:            column.text,
+  script:               column.text,
+  style_selection:      column.text,   // JSON — collage ID + tag tally
+  beat_butcher_output:  column.text,   // JSON — Scene[] output
+  entity_editor_output: column.text,   // JSON — SubjectCategory[] output
+  arc_assembler_output: column.text,   // JSON — per-scene and per-subject briefs
+  card_statuses:        column.text,   // JSON — { [moduleId]: StageCardStatus }
+  created_at:           column.text,
+  updated_at:           column.text,
+});
+
+export const AppSchema = new Schema({ pipelines });
+
+// ============================================
+// CONNECTOR
+// ============================================
+
+class SupabaseConnector implements PowerSyncBackendConnector {
+  async fetchCredentials() {
+    const token = await getSupabaseToken();
+    return {
+      endpoint: process.env.EXPO_PUBLIC_POWERSYNC_URL ?? '',
+      token: token ?? '',
+    };
+  }
+
+  async uploadData(database: AbstractPowerSyncDatabase): Promise<void> {
+    const transaction = await database.getNextCrudTransaction();
+    if (!transaction) return;
+
+    try {
+      for (const op of transaction.crud) {
+        if (op.table !== 'pipelines') continue;
+
+        switch (op.op) {
+          case 'PUT': {
+            const { error } = await supabase
+              .from('pipelines')
+              .upsert({ id: op.id, ...op.opData });
+            if (error) throw error;
+            break;
+          }
+          case 'PATCH': {
+            const { error } = await supabase
+              .from('pipelines')
+              .update(op.opData ?? {})
+              .eq('id', op.id);
+            if (error) throw error;
+            break;
+          }
+          case 'DELETE': {
+            const { error } = await supabase
+              .from('pipelines')
+              .delete()
+              .eq('id', op.id);
+            if (error) throw error;
+            break;
+          }
+        }
+      }
+      await transaction.complete();
+    } catch (error) {
+      console.error('[PowerSync] uploadData failed:', error);
+      throw error;
+    }
+  }
+}
+
+// ============================================
+// DATABASE INSTANCE + CONNECTOR
+// ============================================
+
+export const connector = new SupabaseConnector();
+
+export const powerSyncDb = new PowerSyncDatabase({
+  schema: AppSchema,
+  database: { dbFilename: 'pipelines.db' },
+});
