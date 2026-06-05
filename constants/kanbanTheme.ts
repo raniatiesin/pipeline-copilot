@@ -2,11 +2,11 @@
  * ============================================
  * KANBAN THEME EXTENSION
  * ============================================
- * 
+ *
  * Color definitions for Kanban status columns.
  * Extends the main theme with Kanban-specific tokens.
  * Uses brand palette colors for consistency.
- * 
+ *
  * @module constants/kanbanTheme
  */
 
@@ -19,10 +19,10 @@ import { colors } from './theme';
 /**
  * Color palette for Kanban statuses.
  * Each status has background, border, text, and accent colors.
- * 
+ *
  * Brand colors used:
  * - skyBlue (#69c2ef) → Done
- * - burntSienna (#e8824f) → In Progress  
+ * - burntSienna (#e8824f) → In Progress
  * - sunglow (#ffc22a) → Up Next
  * - purple (#a78bfa) → In Review
  */
@@ -81,30 +81,30 @@ export type KanbanColorKey = keyof typeof kanbanColors;
 // ============================================
 
 /**
- * Hardcoded module build order.
- * Modules unlock sequentially - next module enters Up Next
- * when previous module reaches In Review (100% progress).
+ * Hardcoded module build order — 4 cards, final names.
+ * Unlock chain per master doc §7:
+ *   Style Selector + Beat Butcher → UP_NEXT on project creation
+ *   Entity Editor → UP_NEXT when Beat Butcher reaches IN_REVIEW
+ *   Arc Assembler → UP_NEXT when Entity Editor reaches IN_REVIEW
  */
 export const MODULE_ORDER = [
-  'script-pasting',
   'style-selector',
-  'scene-segmentor',
-  'subject-segmentor',
-  'scene-mapper',
+  'beat-butcher',
+  'entity-editor',
+  'arc-assembler',
 ] as const;
 
 export type ModuleId = typeof MODULE_ORDER[number];
 
 /**
  * Module display configuration.
- * Maps module IDs to display names and icons.
+ * Maps module IDs to display labels and Feather icon names.
  */
 export const MODULE_CONFIG: Record<ModuleId, { label: string; icon: string }> = {
-  'script-pasting': { label: 'Script', icon: 'file-text' },
   'style-selector': { label: 'Style', icon: 'image' },
-  'scene-segmentor': { label: 'Scenes', icon: 'scissors' },
-  'subject-segmentor': { label: 'Subjects', icon: 'users' },
-  'scene-mapper': { label: 'Storyboard', icon: 'map' },
+  'beat-butcher':   { label: 'Beats', icon: 'scissors' },
+  'entity-editor':  { label: 'Entities', icon: 'users' },
+  'arc-assembler':  { label: 'Arc', icon: 'map' },
 };
 
 // ============================================
@@ -123,11 +123,11 @@ export const kanbanLayout = {
   /** Card dimensions - more square-ish for stronger visual balance */
   cardAspectRatio: 1.65,
   cardPadding: 14,
-  /** Column peek — 0 = full-width columns (matches scene-mapper aesthetic) */
+  /** Column peek — 0 = full-width columns (matches arc-assembler aesthetic) */
   columnPeek: 0,
   /** Column gap — 0 = seamless paging between full-width columns */
   columnGap: 0,
-  /** Horizontal padding inside each column (matches scene-mapper's 24px) */
+  /** Horizontal padding inside each column */
   columnPaddingH: 24,
 } as const;
 

@@ -1,3 +1,18 @@
+/**
+ * ============================================
+ * ENTITY EDITOR - SUBJECT IDENTIFICATION
+ * ============================================
+ *
+ * Horizontal timeline for identifying and cataloguing
+ * recurring subjects (people, objects, concepts) across
+ * all scenes produced by Beat Butcher.
+ *
+ * Current state: skeleton — scene strip renders, no
+ * highlight gesture or subject profile logic yet.
+ *
+ * @module app/scene-segmentation/entity-editor
+ */
+
 import { router } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -9,14 +24,26 @@ import { colors, typography } from '../../constants/theme';
 import { useSceneSegmentation } from '../../hooks/useSceneSegmentation';
 import type { Scene } from '../../types';
 
+// ============================================
+// CONSTANTS
+// ============================================
+
 const MIN_SCENE_WIDTH = 300;
 const SCRIPT_TAPE_HEIGHT = 40;
+
+// ============================================
+// HELPERS
+// ============================================
 
 function getSceneText(scene: Scene): string {
   return scene.words.map(word => word.text).join(' ').trim();
 }
 
-export default function SubjectMapperScreen() {
+// ============================================
+// MAIN COMPONENT
+// ============================================
+
+export default function EntityEditorScreen() {
   const { state } = useSceneSegmentation();
 
   const sceneTexts = useMemo(() => state.scenes.map(getSceneText), [state.scenes]);
@@ -33,9 +60,9 @@ export default function SubjectMapperScreen() {
     <ScreenLayout
       tabs={[
         { label: 'Project', route: '/project' },
-        { label: 'Segmentation', route: '/scene-segmentation/input' },
+        { label: 'Entity Editor', route: '/scene-segmentation/entity-editor' },
       ]}
-      title="Subject"
+      title="Entity Editor"
       progress={66}
       onBack={handleBack}
       onContinue={handleContinue}
@@ -82,6 +109,10 @@ export default function SubjectMapperScreen() {
     </ScreenLayout>
   );
 }
+
+// ============================================
+// STYLES
+// ============================================
 
 const styles = StyleSheet.create({
   root: {

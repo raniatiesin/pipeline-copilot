@@ -1,14 +1,14 @@
 /**
  * ============================================
- * SCENE MAPPER - STORYBOARD OVERVIEW
+ * ARC ASSEMBLER - STORYBOARD OVERVIEW
  * ============================================
- * 
+ *
  * The ultimate synthesis page. Displays an overview of:
  * - Selected Style (Collage + Keywords)
  * - Identified Subjects
  * - Segmented Scenes & Beats (The Storyboard)
- * 
- * @module app/scene-mapper/index
+ *
+ * @module app/arc-assembler/index
  */
 
 import { Feather } from '@expo/vector-icons';
@@ -35,7 +35,7 @@ const MOCK_STYLE = {
 // MAIN COMPONENT
 // ============================================
 
-export default function StoryboardOverviewScreen() {
+export default function ArcAssemblerScreen() {
   const router = useRouter();
   const { state } = useSceneSegmentation();
   const { scenes, subjectCategories } = state;
@@ -52,16 +52,16 @@ export default function StoryboardOverviewScreen() {
     <ScreenLayout
       tabs={[
         { label: 'Project', route: '/project' },
-        { label: 'Storyboard', route: '/scene-mapper' },
+        { label: 'Arc Assembler', route: '/arc-assembler' },
       ]}
-      title="Synthesis Overview"
+      title="Arc Assembler"
       onBack={handleBack}
       onContinue={handleContinue}
     >
       <Stack.Screen options={{ headerShown: false }} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+
         {/* SECTION 1: VISUAL STYLE */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -90,9 +90,9 @@ export default function StoryboardOverviewScreen() {
           </View>
           <View style={styles.subjectsContainer}>
             {subjectCategories.length === 0 ? (
-              <Text style={styles.emptyText}>No subjects categorized yet.</Text>
+              <Text style={styles.emptyText}>No subjects catalogued yet.</Text>
             ) : (
-              subjectCategories.map((cat, idx) => (
+              subjectCategories.map((cat) => (
                 <View key={cat.id} style={styles.subjectCard}>
                   <View style={[styles.subjectAvatar, { backgroundColor: cat.color || colors.borderMuted }]} />
                   <Text style={styles.subjectName}>{cat.name}</Text>
@@ -114,8 +114,7 @@ export default function StoryboardOverviewScreen() {
             ) : (
               scenes.map((scene, idx) => {
                 const scriptText = scene.words.map(w => w.text).join(' ');
-                
-                // Collect subjects assigned in this scene
+
                 const sceneSubjectIds = scene.subjects
                   .map(sub => sub.categoryId)
                   .filter(Boolean) as string[];
@@ -135,7 +134,7 @@ export default function StoryboardOverviewScreen() {
                       </View>
                       <View style={styles.sceneTextWrap}>
                         <Text style={styles.sceneScript}>"{scriptText}"</Text>
-                        
+
                         {sceneCategories.length > 0 && (
                           <View style={styles.sceneSubjectPills}>
                             {sceneCategories.map((cat, catIdx) => (
@@ -185,7 +184,7 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     textTransform: 'uppercase',
   },
-  
+
   // Style Section
   styleContainer: {
     flexDirection: 'row',
@@ -218,7 +217,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.borderMuted,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.md,
   },
   keywordText: {
     ...typography.caption,
@@ -239,13 +238,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 2,
     borderColor: colors.border,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.md,
     paddingRight: spacing.md,
   },
   subjectAvatar: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -312,7 +311,7 @@ const styles = StyleSheet.create({
   miniSubjectPill: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',
   },

@@ -1,6 +1,6 @@
 /**
  * ============================================
- * SCENE MAPPER — STAGE 1 SCREEN
+ * BEAT BUTCHER — SCENE SEGMENTATION SCREEN
  * ============================================
  *
  * Gesture-driven scene editing interface.
@@ -17,7 +17,7 @@
  *
  * No PanResponder anywhere. No responder handoff race conditions.
  *
- * @module app/scene-segmentation/scene-mapper
+ * @module app/scene-segmentation/beat-butcher
  */
 
 import { Feather } from '@expo/vector-icons';
@@ -25,18 +25,18 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    LayoutChangeEvent,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  LayoutChangeEvent,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import Animated, { LinearTransition, useSharedValue } from 'react-native-reanimated';
 import {
-    DropZone,
-    SceneMapperCard,
+  DropZone,
+  SceneMapperCard,
 } from '../../components/scene-segmentation/scene-mapper';
 import { ScreenLayout } from '../../components/ui/ScreenLayout';
 import { DROP_ZONE_HEIGHT } from '../../constants/sceneMapper';
@@ -49,7 +49,7 @@ import type { CardLayoutRect } from '../../types/scene-mapper-gestures';
 // MAIN SCREEN
 // ============================================
 
-export default function SceneMapperScreen() {
+export default function BeatButcherScreen() {
   const {
     state,
     splitSceneAt,
@@ -277,7 +277,7 @@ export default function SceneMapperScreen() {
   // ── Navigation ──
 
   const handleContinue = useCallback(() => {
-    router.push('/scene-segmentation/subject-segmentor');
+    router.push('/scene-segmentation/entity-editor');
   }, []);
 
   const handleBack = useCallback(() => {
@@ -300,9 +300,9 @@ export default function SceneMapperScreen() {
     <ScreenLayout
       tabs={[
         { label: 'Project', route: '/project' },
-        { label: 'Segmentation', route: '/scene-segmentation/input' },
+        { label: 'Beat Butcher', route: '/scene-segmentation/beat-butcher' },
       ]}
-      title="Scene"
+      title="Beat Butcher"
       progress={33}
       onBack={handleBack}
       onContinue={handleContinue}
@@ -317,99 +317,99 @@ export default function SceneMapperScreen() {
           showsVerticalScrollIndicator={true}
           indicatorStyle="black"
         >
-            {sceneItems.map((scene, index) => {
-              const isGestureSource = activeGesture.type !== 'none' && activeGesture.sceneId === scene.id;
-              const cardSplitTarget =
-                split.splitTarget && split.splitTarget.sceneId === scene.id
-                  ? split.splitTarget
-                  : null;
-              const splitOverlayElevated = cardSplitTarget != null;
+          {sceneItems.map((scene, index) => {
+            const isGestureSource = activeGesture.type !== 'none' && activeGesture.sceneId === scene.id;
+            const cardSplitTarget =
+              split.splitTarget && split.splitTarget.sceneId === scene.id
+                ? split.splitTarget
+                : null;
+            const splitOverlayElevated = cardSplitTarget != null;
 
-              return (
-                <View key={scene.id}>
-                  {/* Drop zone above this card (reorder mode) */}
-                  {isReorderActive && reorderState.sceneId !== scene.id && (
-                    <DropZone
-                      isActive={reorderState.activeDropZone === index}
-                      isDisabled={
-                        index === reorderState.originalIndex ||
-                        index === reorderState.originalIndex + 1
-                      }
-                    />
-                  )}
+            return (
+              <View key={scene.id}>
+                {/* Drop zone above this card (reorder mode) */}
+                {isReorderActive && reorderState.sceneId !== scene.id && (
+                  <DropZone
+                    isActive={reorderState.activeDropZone === index}
+                    isDisabled={
+                      index === reorderState.originalIndex ||
+                      index === reorderState.originalIndex + 1
+                    }
+                  />
+                )}
 
-                  {/* Scene Card */}
-                  <Animated.View
-                    layout={cardLayoutTransition}
-                    style={[
-                      styles.cardSpacer,
-                      splitOverlayElevated && styles.cardSpacerElevated,
-                    ]}
-                    onLayout={(e) => handleCardLayout(scene.id, e)}
-                  >
-                    <SceneMapperCard
-                      sceneId={scene.id}
-                      sceneOrder={scene.order}
-                      words={scene.words}
-                      duration={scene.estimatedDuration || 0}
-                      isFirst={index === 0}
-                      isLast={index === sceneItems.length - 1}
-                      gestureDisabled={isAnyGestureActive && !isGestureSource}
-                      isGestureSource={isGestureSource}
-                      splitTarget={cardSplitTarget}
-                      splitDragOffset={split.splitDragOffset}
-                      sceneIndex={index}
-                      splitSceneIdx={split.splitSceneIdx}
-                      splitGhostOffsetY={split.splitGhostOffsetY}
-                      splitWordIdxSV={split.splitWordIdxSV}
-                      splitGhostOpacity={split.splitGhostOpacity}
-                      gestureLockSV={gestureLockSV}
-                      onGestureStart={handleGestureStart}
-                      onGestureEnd={handleGestureEnd}
-                      onSplitStart={handleSplitStart}
-                      onSplitEnd={handleSplitEnd}
-                      onSplitCancel={handleSplitCancel}
-                      onMergeWithPrevious={handleMergeWithPrevious}
-                      onMergeWithNext={handleMergeWithNext}
-                      onReorderStart={handleReorderStart}
-                      onReorderMove={handleReorderMove}
-                      onReorderEnd={handleReorderEnd}
-                    />
-                  </Animated.View>
-                </View>
-              );
-            })}
-
-            {/* Drop zone after last card (reorder mode) */}
-            {isReorderActive && (
-              <DropZone
-                isActive={reorderState.activeDropZone === sceneItems.length}
-                isDisabled={reorderState.originalIndex === sceneItems.length - 1}
-              />
-            )}
-
-            {/* Empty state */}
-            {sceneItems.length === 0 && (
-              <View style={styles.emptyState}>
-                <Feather name="film" size={40} color={colors.text.secondary} />
-                <Text style={styles.emptyText}>No scenes yet</Text>
-                <Text style={styles.emptySubtext}>
-                  Go back and paste a script to generate scenes
-                </Text>
+                {/* Scene Card */}
+                <Animated.View
+                  layout={cardLayoutTransition}
+                  style={[
+                    styles.cardSpacer,
+                    splitOverlayElevated && styles.cardSpacerElevated,
+                  ]}
+                  onLayout={(e) => handleCardLayout(scene.id, e)}
+                >
+                  <SceneMapperCard
+                    sceneId={scene.id}
+                    sceneOrder={scene.order}
+                    words={scene.words}
+                    duration={scene.estimatedDuration || 0}
+                    isFirst={index === 0}
+                    isLast={index === sceneItems.length - 1}
+                    gestureDisabled={isAnyGestureActive && !isGestureSource}
+                    isGestureSource={isGestureSource}
+                    splitTarget={cardSplitTarget}
+                    splitDragOffset={split.splitDragOffset}
+                    sceneIndex={index}
+                    splitSceneIdx={split.splitSceneIdx}
+                    splitGhostOffsetY={split.splitGhostOffsetY}
+                    splitWordIdxSV={split.splitWordIdxSV}
+                    splitGhostOpacity={split.splitGhostOpacity}
+                    gestureLockSV={gestureLockSV}
+                    onGestureStart={handleGestureStart}
+                    onGestureEnd={handleGestureEnd}
+                    onSplitStart={handleSplitStart}
+                    onSplitEnd={handleSplitEnd}
+                    onSplitCancel={handleSplitCancel}
+                    onMergeWithPrevious={handleMergeWithPrevious}
+                    onMergeWithNext={handleMergeWithNext}
+                    onReorderStart={handleReorderStart}
+                    onReorderMove={handleReorderMove}
+                    onReorderEnd={handleReorderEnd}
+                  />
+                </Animated.View>
               </View>
-            )}
+            );
+          })}
 
-            {/* Tap-to-cancel: fills remaining space at bottom */}
-            {split.isSplitActive && (
-              <Pressable
-                onPress={handleBackgroundPress}
-                style={styles.cancelTapZone}
-              />
-            )}
+          {/* Drop zone after last card (reorder mode) */}
+          {isReorderActive && (
+            <DropZone
+              isActive={reorderState.activeDropZone === sceneItems.length}
+              isDisabled={reorderState.originalIndex === sceneItems.length - 1}
+            />
+          )}
 
-            <View style={styles.bottomPadding} />
-          </ScrollView>
-        </View>
+          {/* Empty state */}
+          {sceneItems.length === 0 && (
+            <View style={styles.emptyState}>
+              <Feather name="film" size={40} color={colors.text.secondary} />
+              <Text style={styles.emptyText}>No scenes yet</Text>
+              <Text style={styles.emptySubtext}>
+                Go back and paste a script to generate scenes
+              </Text>
+            </View>
+          )}
+
+          {/* Tap-to-cancel: fills remaining space at bottom */}
+          {split.isSplitActive && (
+            <Pressable
+              onPress={handleBackgroundPress}
+              style={styles.cancelTapZone}
+            />
+          )}
+
+          <View style={styles.bottomPadding} />
+        </ScrollView>
+      </View>
 
     </ScreenLayout>
   );

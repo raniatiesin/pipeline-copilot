@@ -33,7 +33,7 @@ export default function SceneSegmentationInputScreen() {
   const handleGetStarted = () => {
     if (!state.originalScript.trim()) return;
     processScript();
-    router.push('/scene-segmentation/scene-segmentor');
+    router.push('/scene-segmentation/beat-butcher');
   };
 
   const handlePaste = async () => {

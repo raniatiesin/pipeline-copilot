@@ -1,11 +1,14 @@
 /**
  * ============================================
- * PROJECT PAGE - KANBAN TASK BOARD
+ * PROJECT PAGE - STAGES KANBAN BOARD
  * ============================================
- * 
- * Main project view showing tasks in a Kanban board.
+ *
+ * Inner Kanban board showing the 4 pipeline stage cards
+ * for a single project: Style Selector, Beat Butcher,
+ * Entity Editor, Arc Assembler.
+ *
  * Uses ScreenLayout for universal Header → LINE → Content → LINE → Footer.
- * 
+ *
  * @module app/project
  */
 
@@ -20,29 +23,29 @@ import { KanbanProvider } from '@/hooks/useKanban';
 import type { KanbanItem } from '@/types/kanban';
 
 // ============================================
-// PROJECT MODULES
+// PROJECT MODULES — 4 cards, final names
 // ============================================
 
 const PROJECT_MODULES: KanbanItem[] = [
   {
-    id: 'script-pasting',
-    title: 'Script Pasting',
-    description: 'Paste your quote or script to generate the foundation for all other steps.',
-    moduleId: 'script-pasting',
-    icon: 'file-text',
-    status: KANBAN_STATUS.IN_PROGRESS,
+    id: 'style-selector',
+    title: 'Style Selector',
+    description: 'Browse and select one of 690 offline visual style collages to anchor the project aesthetic.',
+    moduleId: 'style-selector',
+    icon: 'image',
+    status: KANBAN_STATUS.UP_NEXT,
     order: 1,
     createdAt: new Date(),
     updatedAt: new Date(),
-    progress: 10,
+    progress: 0,
     priority: 'high',
   },
   {
-    id: 'style-selector',
-    title: 'Style Selector',
-    description: 'Pick from curated visual presets to define your video aesthetic.',
-    moduleId: 'style-selector',
-    icon: 'image',
+    id: 'beat-butcher',
+    title: 'Beat Butcher',
+    description: 'Segment the script into beats and scenes using gestures — split, merge, reorder.',
+    moduleId: 'beat-butcher',
+    icon: 'scissors',
     status: KANBAN_STATUS.UP_NEXT,
     order: 2,
     createdAt: new Date(),
@@ -51,39 +54,26 @@ const PROJECT_MODULES: KanbanItem[] = [
     priority: 'high',
   },
   {
-    id: 'scene-segmentor',
-    title: 'Scene Segmentor',
-    description: 'Divide the script into logical beats and scenes.',
-    moduleId: 'scene-segmentor',
-    icon: 'scissors',
-    status: KANBAN_STATUS.UP_NEXT,
-    order: 3,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    progress: 0,
-    priority: 'high',
-  },
-  {
-    id: 'subject-segmentor',
-    title: 'Subject Segmentor',
-    description: 'Identify the primary subjects and concepts in the scenes.',
-    moduleId: 'subject-segmentor',
+    id: 'entity-editor',
+    title: 'Entity Editor',
+    description: 'Identify and catalogue recurring subjects across all scenes.',
+    moduleId: 'entity-editor',
     icon: 'users',
     status: KANBAN_STATUS.TODO,
-    order: 4,
+    order: 3,
     createdAt: new Date(),
     updatedAt: new Date(),
     progress: 0,
     priority: 'medium',
   },
   {
-    id: 'scene-mapper',
-    title: 'Scene Mapper',
-    description: 'Combine script, style, and subjects into a complete visual storyboard.',
-    moduleId: 'scene-mapper',
+    id: 'arc-assembler',
+    title: 'Arc Assembler',
+    description: 'Combine scenes, subjects, and style into a complete visual brief for each beat.',
+    moduleId: 'arc-assembler',
     icon: 'map',
     status: KANBAN_STATUS.TODO,
-    order: 5,
+    order: 4,
     createdAt: new Date(),
     updatedAt: new Date(),
     progress: 0,
@@ -109,17 +99,14 @@ export default function ProjectScreen() {
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
   const handleItemPress = useCallback((item: KanbanItem) => {
-    // Navigate to module Kanban view
-    if (item.moduleId === 'script-pasting') {
-      router.push('/scene-segmentation/input' as any);
-    } else if (item.moduleId === 'style-selector') {
+    if (item.moduleId === 'style-selector') {
       router.push('/style-matcher/' as any);
-    } else if (item.moduleId === 'scene-segmentor') {
-      router.push('/scene-segmentation/scene-segmentor' as any);
-    } else if (item.moduleId === 'subject-segmentor') {
-      router.push('/scene-segmentation/subject-segmentor' as any);
-    } else if (item.moduleId === 'scene-mapper') {
-      router.push('/scene-mapper/' as any);
+    } else if (item.moduleId === 'beat-butcher') {
+      router.push('/scene-segmentation/beat-butcher' as any);
+    } else if (item.moduleId === 'entity-editor') {
+      router.push('/scene-segmentation/entity-editor' as any);
+    } else if (item.moduleId === 'arc-assembler') {
+      router.push('/arc-assembler/' as any);
     }
   }, [router]);
 
@@ -140,7 +127,7 @@ export default function ProjectScreen() {
   return (
     <ScreenLayout
       tabs={[
-        { label: 'Login', route: '/' },
+        { label: 'Projects', route: '/' },
       ]}
       title={projectTitle}
       progress={progress}
