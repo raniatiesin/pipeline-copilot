@@ -19,7 +19,6 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ScreenLayout } from '@/components/ui/ScreenLayout';
 import { getLineThickness } from '@/constants/line';
 import { borderRadius, colors, spacing, typography } from '@/constants/theme';
-import { useSceneSegmentation } from '@/hooks/useSceneSegmentation';
 
 // ============================================
 // MOCK STYLE DATA (Pending Global State)
@@ -37,8 +36,9 @@ const MOCK_STYLE = {
 
 export default function ArcAssemblerScreen() {
   const router = useRouter();
-  const { state } = useSceneSegmentation();
-  const { scenes, subjectCategories } = state;
+  // Placeholder until global state wires Arc Assembler to scene/entity data (future task)
+  const scenes: any[] = [];
+  const subjectCategories: any[] = [];
 
   const handleBack = useCallback(() => {
     router.back();

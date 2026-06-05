@@ -11,24 +11,34 @@
 
 import { Feather } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { router, Stack } from 'expo-router';
-import React, { useRef } from 'react';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useRef } from 'react';
 import {
-    Animated,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
 } from 'react-native';
 
-  import { ScreenLayout } from '@/components/ui/ScreenLayout';
+import { ScreenLayout } from '@/components/ui/ScreenLayout';
 import { colors, spacing, typography } from '@/constants/theme';
 import { useSceneSegmentation } from '@/hooks/useSceneSegmentation';
 
 export default function SceneSegmentationInputScreen() {
   const { state, setScript, processScript } = useSceneSegmentation();
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Pre-populate from project creation if a script was passed via route param
+  const { prefill } = useLocalSearchParams<{ prefill?: string }>();
+  useEffect(() => {
+    if (prefill && !state.originalScript.trim()) {
+      setScript(prefill);
+    }
+  // Only run on mount — intentionally omitting deps to prevent re-triggering
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleGetStarted = () => {
     if (!state.originalScript.trim()) return;

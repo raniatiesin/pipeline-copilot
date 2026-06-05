@@ -7,7 +7,7 @@
  * Runtime constants live in `constants/kanbanStatus.ts`.
  *
  * Status Flow:
- * TODO → UP_NEXT → IN_PROGRESS → DONE
+ * TODO → UP_NEXT → IN_PROGRESS → IN_REVIEW → DONE
  *
  * @module types/kanban
  */
@@ -82,6 +82,11 @@ export interface KanbanItemMeta {
   quickNote?: string;
   /** Whether the card is outdated because a parent card changed */
   isOutdated?: boolean;
+  /**
+   * Raw script text for project-level items.
+   * Stored at creation and passed to Beat Butcher when the stage is opened.
+   */
+  script?: string;
 }
 
 /**
@@ -125,6 +130,19 @@ export type KanbanAction =
   | { type: 'SET_LOADING'; payload: boolean };
 
 // ============================================
+// CREATE PROJECT DATA
+// ============================================
+
+/**
+ * Input shape for the createProject action.
+ */
+export interface CreateProjectData {
+  prospectName: string;
+  postName: string;
+  script: string;
+}
+
+// ============================================
 // CONTEXT TYPES
 // ============================================
 
@@ -136,7 +154,7 @@ export interface KanbanContextValue {
   state: KanbanState;
   /** Dispatch action */
   dispatch: React.Dispatch<KanbanAction>;
-  
+
   // Convenience methods
   /** Get items for a specific status (auto-derived from progress) */
   getItemsByStatus: (status: KanbanStatus) => KanbanItem[];
@@ -150,6 +168,12 @@ export interface KanbanContextValue {
   updateNote: (id: string, note: string) => void;
   /** Set active page index */
   setPageIndex: (index: number) => void;
+  /**
+   * Create a new project item in the Projects Kanban.
+   * Stores prospect name, post name, and script.
+   * Status auto-derives to IN_PROGRESS on creation.
+   */
+  createProject: (data: CreateProjectData) => void;
 }
 
 // ============================================
@@ -182,6 +206,11 @@ export interface KanbanColumnProps {
   onCardPress?: (item: KanbanItem) => void;
   /** Column width */
   columnWidth: number;
+  /**
+   * Add-project callback — only provided for the Todo column.
+   * Renders an AddProjectButton at the bottom of the list when present.
+   */
+  onAddProject?: () => void;
 }
 
 /**
@@ -202,4 +231,9 @@ export interface KanbanBoardProps {
   onAction?: (status: KanbanStatus) => void;
   /** Called when the visible page/column changes */
   onPageChange?: (pageIndex: number) => void;
+  /**
+   * Callback for adding a new project.
+   * Surfaces an AddProjectButton in the To Do column.
+   */
+  onAddProject?: () => void;
 }

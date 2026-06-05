@@ -8,9 +8,8 @@
  *
  * Features:
  * - Floating pinned pill (cards pass underneath when scrolling)
- * - Full-width cards with 24px horizontal padding (matches scene-mapper)
- * - No action button — global footer handles navigation
- * - No border lines or opaque background on header
+ * - Full-width cards with 24px horizontal padding
+ * - AddProjectButton at the bottom of the To Do column (when onAddProject provided)
  *
  * @module components/kanban/KanbanColumn
  */
@@ -18,18 +17,19 @@
 import { Feather } from '@expo/vector-icons';
 import React from 'react';
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
-import { KANBAN_STATUS_CONFIG } from '@/constants/kanbanStatus';
+import { KANBAN_STATUS, KANBAN_STATUS_CONFIG } from '@/constants/kanbanStatus';
 import { kanbanColors, kanbanLayout } from '@/constants/kanbanTheme';
 import { pillSizes } from '@/constants/pills';
 import { borderRadius, colors, spacing, typography } from '@/constants/theme';
 import type { KanbanColumnProps, KanbanItem } from '@/types/kanban';
 
+import { AddProjectButton } from './AddProjectButton';
 import { KanbanCard } from './KanbanCard';
 
 // ============================================
@@ -91,6 +91,7 @@ export function KanbanColumn({
   count,
   onCardPress,
   columnWidth,
+  onAddProject,
 }: KanbanColumnProps) {
   const config = KANBAN_STATUS_CONFIG[status];
   const colorSet = kanbanColors[config.colorKey];
@@ -107,6 +108,9 @@ export function KanbanColumn({
     />
   );
 
+  // AddProjectButton shown only in the To Do column when callback provided
+  const showAddButton = status === KANBAN_STATUS.TODO && !!onAddProject;
+
   return (
     <View style={[styles.columnWrapper, { width: columnWidth }]}>
       {/* Floating pinned pill — sits above scroll, cards pass behind */}
@@ -122,12 +126,17 @@ export function KanbanColumn({
         bounces={true}
         overScrollMode="always"
       >
-        {items.length === 0 ? (
+        {items.length === 0 && !showAddButton ? (
           <EmptyState colorSet={colorSet} />
         ) : (
           <View style={styles.cardsGrid}>
             {items.map(renderCard)}
           </View>
+        )}
+
+        {/* Add Project Button — bottom of To Do column only */}
+        {showAddButton && (
+          <AddProjectButton onPress={onAddProject!} />
         )}
       </ScrollView>
     </View>
@@ -152,7 +161,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
-    // No borderBottom, no backgroundColor — fully transparent
   },
   tab: {
     flexDirection: 'row',
