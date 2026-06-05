@@ -54,6 +54,7 @@ function ProjectsKanbanContent() {
     router.push({
       pathname: '/stages' as any,
       params: {
+        projectId: item.id,
         title: item.title,
         subtitle: item.description ?? '',
         script: item.script ?? '',
