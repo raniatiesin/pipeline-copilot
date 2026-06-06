@@ -25,6 +25,16 @@ SubjectBriefPopup has an `onNavigateToSubject(categoryId)` callback. The hook's 
 ## Subject highlight rendering
 `SubjectHighlightText` uses `View flexDirection:row flexWrap:wrap` (not nested Text) to allow `TouchableOpacity` wrappers. Consecutive words in the same subject are grouped into one tappable span via `buildSegments()`.
 
+## Drag-to-insert mechanic (Scene Mode)
+- Each subject span uses `Gesture.Exclusive(Pan.activateAfterLongPress(300), Tap)` from RNGH v2.
+- `dragX` / `dragY` are `useSharedValue` — updated directly on UI thread inside `.onChange`, no `runOnJS` needed for smooth animation.
+- `onDragStart`, `onDragEnd`, `onDragCancel` are JS-thread callbacks (`runOnJS`) that update React state.
+- `DragGhost` is an `Animated.View` rendered outside the ScrollView (inside root View), positioned via `useAnimatedStyle` reading `dragX`/`dragY`.
+- TextInput bounds measured via `.measure()` (absolute screen coords) on layout + re-measured on drag start.
+- Cursor position tracked via `onSelectionChange` → `selectionRef`. Insert at cursor with space-separator logic.
+- Subject tap (short press) is a no-op in drag mode (Tap gesture wins via Exclusive when hold < 300ms).
+- ScrollView is disabled (`scrollEnabled={!draggingCategoryId}`) during active drag to prevent accidental scroll.
+
 ## Files created
 - `types/arc-assembler.ts`
 - `lib/arcAssembler.ts` (pure: parseScenes, parseSubjectCategories, parseArcOutput, buildTagsPlaceholder, getSceneIndicesForCategory)
