@@ -22,7 +22,7 @@ import {
     splitScene,
     updateSubjectBounds,
 } from '../lib/sceneSegmentation';
-import type { DragState, Scene, SceneSegmentationState, SubjectCategory, WordRange } from '../types';
+import type { DragState, Scene, SceneSegmentationState, Subject, SubjectCategory, WordRange } from '../types';
 
 // ============================================
 // CONTEXT VALUE TYPE
@@ -41,6 +41,8 @@ interface SceneSegmentationContextValue {
   splitAndMoveWords: (sourceSceneId: string, wordIndex: number, direction: 'up' | 'down', destination: 'new' | 'neighbor') => void;
   expandSubject: (sceneId: string, subjectId: string, newStart: number, newEnd: number) => void;
   createSubject: (sceneId: string, startWordIndex: number, endWordIndex: number) => void;
+  createSubjectWithCategory: (sceneId: string, startWordIndex: number, endWordIndex: number, categoryName: string) => void;
+  createSubjectInCategory: (sceneId: string, startWordIndex: number, endWordIndex: number, categoryId: string) => void;
   deleteSubject: (sceneId: string, subjectId: string) => void;
   createCategory: (name: string, subjectId?: string) => string;
   assignSubjectToCategory: (subjectId: string, categoryId: string) => void;
@@ -310,6 +312,50 @@ export const SceneSegmentationProvider: React.FC<{ children: React.ReactNode }> 
     });
   }, []);
 
+  const createSubjectWithCategory = useCallback((sceneId: string, startWordIndex: number, endWordIndex: number, categoryName: string) => {
+    const subjectId = generateId();
+    const categoryId = generateId();
+    setState(prev => {
+      const sceneIndex = prev.scenes.findIndex(s => s.id === sceneId);
+      if (sceneIndex < 0) return prev;
+      const scene = prev.scenes[sceneIndex];
+      const text = scene.words
+        .filter(w => w.index >= startWordIndex && w.index <= endWordIndex)
+        .map(w => w.text)
+        .join(' ');
+      const newSubject: Subject = { id: subjectId, startWordIndex, endWordIndex, text, isManual: true, categoryId };
+      const newCategory: SubjectCategory = {
+        id: categoryId,
+        name: categoryName,
+        subjectIds: [subjectId],
+        order: prev.subjectCategories.length + 1,
+      };
+      const newScenes = [...prev.scenes];
+      newScenes[sceneIndex] = { ...scene, subjects: [...scene.subjects, newSubject] };
+      return { ...prev, scenes: newScenes, subjectCategories: [...prev.subjectCategories, newCategory], pendingHighlight: null };
+    });
+  }, []);
+
+  const createSubjectInCategory = useCallback((sceneId: string, startWordIndex: number, endWordIndex: number, categoryId: string) => {
+    const subjectId = generateId();
+    setState(prev => {
+      const sceneIndex = prev.scenes.findIndex(s => s.id === sceneId);
+      if (sceneIndex < 0) return prev;
+      const scene = prev.scenes[sceneIndex];
+      const text = scene.words
+        .filter(w => w.index >= startWordIndex && w.index <= endWordIndex)
+        .map(w => w.text)
+        .join(' ');
+      const newSubject: Subject = { id: subjectId, startWordIndex, endWordIndex, text, isManual: true, categoryId };
+      const newScenes = [...prev.scenes];
+      newScenes[sceneIndex] = { ...scene, subjects: [...scene.subjects, newSubject] };
+      const updatedCategories = prev.subjectCategories.map(c =>
+        c.id === categoryId ? { ...c, subjectIds: [...c.subjectIds, subjectId] } : c
+      );
+      return { ...prev, scenes: newScenes, subjectCategories: updatedCategories, pendingHighlight: null };
+    });
+  }, []);
+
   const reset = useCallback(() => { setState(initialState); }, []);
 
   const sceneCount = useMemo(() => state.scenes.length, [state.scenes]);
@@ -320,14 +366,16 @@ export const SceneSegmentationProvider: React.FC<{ children: React.ReactNode }> 
 
   const value = useMemo<SceneSegmentationContextValue>(() => ({
     state, setScript, processScript, splitSceneAt, mergeScenesById, deleteScene, insertSceneAfter,
-    moveWordsToScene, movePhraseToScene, splitAndMoveWords, expandSubject, createSubject, deleteSubject,
+    moveWordsToScene, movePhraseToScene, splitAndMoveWords, expandSubject,
+    createSubject, createSubjectWithCategory, createSubjectInCategory, deleteSubject,
     createCategory, assignSubjectToCategory, unassignSubject, renameCategory, deleteCategory,
     setPendingHighlight, setEditMode, selectSubject, selectWord, setDragState,
     insertSceneAtIndex, reorderSceneById,
     sceneCount, totalDuration, totalSubjects, assignedSubjects, pendingSubjects, reset,
   }), [
     state, setScript, processScript, splitSceneAt, mergeScenesById, deleteScene, insertSceneAfter,
-    moveWordsToScene, movePhraseToScene, splitAndMoveWords, expandSubject, createSubject, deleteSubject,
+    moveWordsToScene, movePhraseToScene, splitAndMoveWords, expandSubject,
+    createSubject, createSubjectWithCategory, createSubjectInCategory, deleteSubject,
     createCategory, assignSubjectToCategory, unassignSubject, renameCategory, deleteCategory,
     setPendingHighlight, setEditMode, selectSubject, selectWord, setDragState,
     insertSceneAtIndex, reorderSceneById,
