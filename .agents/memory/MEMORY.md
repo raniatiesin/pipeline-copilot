@@ -6,3 +6,4 @@
 - [Dimensions API in web Expo](dimensions-web-expo.md) — Dimensions.get('window') at module-load returns 0 in Expo web; use useWindowDimensions() hook inside components for reactive, correct values.
 - [KanbanContextValue shape](kanban-context-shape.md) — Does NOT expose items directly; use state.items (Record<string,KanbanItem>). state.items is under KanbanState, accessed via useKanban().state.items.
 - [Entity editor atomic subject creation](entity-editor-atomic.md) — createSubject + createCategory must be called atomically; added createSubjectWithCategory / createSubjectInCategory to useSceneSegmentation to avoid async ID mismatch.
+- [Arc Assembler build — Stage 3A](arc-assembler-build.md) — DB read pattern, debounced write, mode-switch scroll coordination, SubjectBriefPopup nav flow, JSX apostrophe TS error.

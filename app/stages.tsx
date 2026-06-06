@@ -131,7 +131,10 @@ function StagesContent({ script, title, subtitle, projectId }: StagesContentProp
     } else if (item.moduleId === 'entity-editor') {
       router.push('/scene-segmentation/entity-editor' as any);
     } else if (item.moduleId === 'arc-assembler') {
-      router.push('/arc-assembler/' as any);
+      router.push({
+        pathname: '/arc-assembler/' as any,
+        params: { projectId },
+      });
     }
   }, [router, script]);
 
