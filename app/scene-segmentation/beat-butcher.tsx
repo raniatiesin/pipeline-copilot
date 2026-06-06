@@ -56,6 +56,7 @@ export default function BeatButcherScreen() {
     splitSceneAt,
     mergeScenesById,
     reorderSceneById,
+    deleteScene,
   } = useSceneSegmentation();
 
   // ── Global gesture lock ──
@@ -154,6 +155,20 @@ export default function BeatButcherScreen() {
   reorderStateRef.current = reorderState;
 
   const cardLayouts = useRef<Map<string, CardLayoutRect>>(new Map());
+
+  // ── Delete first / last scene ──
+
+  const handleDeleteScene = useCallback(
+    (sceneId: string) => {
+      // Guard: minimum 1 scene must always remain
+      if (scenesRef.current.length <= 1) return;
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+      deleteScene(sceneId);
+    },
+    [deleteScene],
+  );
 
   // ── Merge confirmed ──
 
@@ -378,6 +393,20 @@ export default function BeatButcherScreen() {
                     onReorderEnd={handleReorderEnd}
                   />
                 </Animated.View>
+
+                {/* Delete affordance — first and last card only, minimum 1 card guard */}
+                {(index === 0 || index === sceneItems.length - 1) &&
+                  sceneItems.length > 1 &&
+                  !isAnyGestureActive && (
+                    <Pressable
+                      onPress={() => handleDeleteScene(scene.id)}
+                      style={styles.deleteButton}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Feather name="trash-2" size={12} color={colors.error} />
+                      <Text style={styles.deleteButtonText}>DELETE BEAT</Text>
+                    </Pressable>
+                  )}
               </View>
             );
           })}
@@ -459,5 +488,22 @@ const styles = StyleSheet.create({
   },
   cancelTapZone: {
     minHeight: 200,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.sm,
+    alignSelf: 'flex-end',
+  },
+  deleteButtonText: {
+    ...typography.caption,
+    color: colors.error,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    fontSize: 10,
   },
 });
