@@ -27,7 +27,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "RCT_METRO_PORT=5000 node_modules/.bin/expo start --web --localhost"
+args = "RCT_METRO_PORT=5000 node_modules/.bin/expo start --web --port 5000 --localhost"
 waitForPort = 5000
 
 [[ports]]
