@@ -38,6 +38,7 @@ import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native
 import { getLineThickness } from '../../constants/line';
 import { pillSizes } from '../../constants/pills';
 import { colors, shadows, spacing, typography } from '../../constants/theme';
+import { useSyncStatus } from '../../hooks/useSyncStatus';
 
 // ============================================
 // TYPES
@@ -87,7 +88,9 @@ export function NavigationHeader({
   progressLabel,
   progressIcon = 'pie-chart',
 }: NavigationHeaderProps) {
-  
+  const syncStatus = useSyncStatus();
+  const dotColor = syncStatus === 'online' ? colors.success : colors.error;
+
   const handleTabPress = useCallback((tab: NavigationTab, index: number) => {
     // Don't navigate if it's the last tab (current page) or no route specified
     if (index === tabs.length - 1 || !tab.route) return;
@@ -110,10 +113,12 @@ export function NavigationHeader({
 
   return (
     <View style={styles.container}>
-      {/* Top right sync indicator */}
-      <View style={styles.syncDotContainer} accessibilityLabel="Sync Status: Online/Offline">
-        {/* We default to green for now. Will be red when offline functionality is wired. */}
-        <View style={[styles.syncDot, { backgroundColor: colors.success }]} />
+      {/* Top right sync indicator — green = online, red = offline */}
+      <View
+        style={styles.syncDotContainer}
+        accessibilityLabel={`Sync status: ${syncStatus}`}
+      >
+        <View style={[styles.syncDot, { backgroundColor: dotColor }]} />
       </View>
 
       {/* Tab Navigation Row */}

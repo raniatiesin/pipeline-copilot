@@ -174,14 +174,18 @@ function StagesContent({ script, title, subtitle }: StagesContentProps) {
 // ============================================
 
 export default function StagesScreen() {
-  const { title, subtitle, script } = useLocalSearchParams<{
+  const { projectId, title, subtitle, script } = useLocalSearchParams<{
+    projectId?: string;
     title?: string;
     subtitle?: string;
     script?: string;
   }>();
 
   return (
-    <KanbanProvider initialItems={buildStageModules()}>
+    <KanbanProvider
+      initialItems={buildStageModules()}
+      projectId={projectId}
+    >
       <StagesContent
         title={title || 'Untitled Project'}
         subtitle={subtitle || ''}

@@ -1,25 +1,39 @@
+/**
+ * Metro bundler configuration.
+ *
+ * Web platform overrides:
+ *  - @powersync/react-native  →  @powersync/web
+ *    (react-native-quick-sqlite is native-only; WASQLite handles web)
+ *  - @journeyapps/react-native-quick-sqlite  →  empty module stub
+ *  - @azure/core-asynciterator-polyfill  →  empty (browsers support async
+ *    iterators natively; polyfill is only needed on Android/iOS)
+ *
+ * @module metro.config
+ */
+
 const { getDefaultConfig } = require('expo/metro-config');
-const path = require('path');
 
 const config = getDefaultConfig(__dirname);
-
-/**
- * For web builds, redirect native-only packages to local stubs.
- * @powersync/react-native and the azure polyfill require native SQLite —
- * they are not bundleable on web. The stubs keep the web preview running.
- */
-const WEB_STUBS = {
-  '@azure/core-asynciterator-polyfill': path.resolve(__dirname, 'stubs/polyfill.js'),
-  '@powersync/react-native': path.resolve(__dirname, 'stubs/powersync-react-native.js'),
-  '@journeyapps/react-native-quick-sqlite': path.resolve(__dirname, 'stubs/polyfill.js'),
-};
 
 const originalResolveRequest = config.resolver.resolveRequest;
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (platform === 'web' && WEB_STUBS[moduleName]) {
-    return { filePath: WEB_STUBS[moduleName], type: 'sourceFile' };
+  if (platform === 'web') {
+    if (moduleName === '@powersync/react-native') {
+      return (originalResolveRequest ?? context.resolveRequest)(
+        context,
+        '@powersync/web',
+        platform,
+      );
+    }
+    if (
+      moduleName === '@journeyapps/react-native-quick-sqlite' ||
+      moduleName === '@azure/core-asynciterator-polyfill'
+    ) {
+      return { type: 'empty' };
+    }
   }
+
   if (originalResolveRequest) {
     return originalResolveRequest(context, moduleName, platform);
   }
