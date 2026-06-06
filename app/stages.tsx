@@ -99,9 +99,10 @@ interface StagesContentProps {
   script: string;
   title: string;
   subtitle: string;
+  projectId: string;
 }
 
-function StagesContent({ script, title, subtitle }: StagesContentProps) {
+function StagesContent({ script, title, subtitle, projectId }: StagesContentProps) {
   const router = useRouter();
   const { markInReview, getItemsByStatus } = useKanban();
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -118,7 +119,10 @@ function StagesContent({ script, title, subtitle }: StagesContentProps) {
 
   const handleItemPress = useCallback((item: KanbanItem) => {
     if (item.moduleId === 'style-selector') {
-      router.push('/style-matcher/' as any);
+      router.push({
+        pathname: '/style-matcher/' as any,
+        params: { projectId },
+      });
     } else if (item.moduleId === 'beat-butcher') {
       router.push({
         pathname: '/scene-segmentation/input' as any,
@@ -190,6 +194,7 @@ export default function StagesScreen() {
         title={title || 'Untitled Project'}
         subtitle={subtitle || ''}
         script={script || ''}
+        projectId={projectId || ''}
       />
     </KanbanProvider>
   );
