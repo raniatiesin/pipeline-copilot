@@ -1,6 +1,6 @@
 # Pipeline Copilot — Master Reference Document
 
-> **Version:** Post-naming session, pre-Arc Assembler build  
+> **Version:** Stage 1 Complete, 2A Complete — Stage 2 In Progress  
 > **Purpose:** Single source of truth for every decision, convention, mechanic, and piece of intent behind the app. This document governs all future actions. Nothing gets built without checking here first.
 
 ---
@@ -620,55 +620,55 @@ Every task below is atomic — one thing, fully done, committed, before moving t
 - [x] PowerSync project created, Supabase connected, sync rules deployed
 - [x] `.env` populated with `EXPO_PUBLIC_POWERSYNC_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 
-#### 1B. File & Route Renames
-- [ ] Rename `app/scene-mapper/` → `app/arc-assembler/` (move `index.tsx` into new folder)
-- [ ] Rename `app/scene-segmentation/subject-segmentor.tsx` → `app/scene-segmentation/entity-editor.tsx`
-- [ ] Rename `app/scene-segmentation/scene-segmentor.tsx` → `app/scene-segmentation/beat-butcher.tsx`
-- [ ] Update all `router.push()` calls in `app/project.tsx` to new route paths
-- [ ] Update `PROJECT_MODULES` array in `app/project.tsx` — new IDs, titles, icons, routes
-- [ ] Update `MODULE_ORDER` in `constants/kanbanTheme.ts` to `['style-selector', 'beat-butcher', 'entity-editor', 'arc-assembler']`
-- [ ] Update `MODULE_CONFIG` in `constants/kanbanTheme.ts` with new labels and icons
-- [ ] Update breadcrumb `tabs` prop in every screen to reflect new route paths and labels
-- [ ] Verify app builds and navigates correctly after all renames
+#### 1B. File & Route Renames ✅ COMPLETE
+- [x] Rename `app/scene-mapper/` → `app/arc-assembler/` (move `index.tsx` into new folder)
+- [x] Rename `app/scene-segmentation/subject-segmentor.tsx` → `app/scene-segmentation/entity-editor.tsx`
+- [x] Rename `app/scene-segmentation/scene-segmentor.tsx` → `app/scene-segmentation/beat-butcher.tsx`
+- [x] Update all `router.push()` calls in `app/project.tsx` to new route paths
+- [x] Update `PROJECT_MODULES` array in `app/project.tsx` — new IDs, titles, icons, routes
+- [x] Update `MODULE_ORDER` in `constants/kanbanTheme.ts` to `['style-selector', 'beat-butcher', 'entity-editor', 'arc-assembler']`
+- [x] Update `MODULE_CONFIG` in `constants/kanbanTheme.ts` with new labels and icons
+- [x] Update breadcrumb `tabs` prop in every screen to reflect new route paths and labels
+- [x] Verify app builds and navigates correctly after all renames
 
-#### 1C. Project Creation Form
-- [ ] Add `AddProjectButton` component to Waiting column in `KanbanBoard` — bottom of column, unique to Waiting only
-- [ ] Build `CreateProjectModal` component — 3 inputs: prospect name, post name, script. Full neobrutalist styling. No HTML form tags — use controlled inputs + button.
-- [ ] Add `createProject` action to `useKanban` hook — initializes a new project with all 4 cards, sets Style Selector and Beat Butcher to `UP_NEXT`, Entity Editor and Arc Assembler to `TODO`
-- [ ] Wire `CreateProjectModal` to `createProject` action
-- [ ] On project creation, pass script text through to Beat Butcher's initial state via `useSceneSegmentation`
-- [ ] Verify new project card appears correctly in Projects Kanban
+#### 1C. Project Creation Form ✅ COMPLETE
+- [x] Add `AddProjectButton` component to Waiting column in `KanbanBoard` — bottom of column, unique to Waiting only
+- [x] Build `CreateProjectModal` component — 3 inputs: prospect name, post name, script. Full neobrutalist styling. No HTML form tags — use controlled inputs + button.
+- [x] Add `createProject` action to `useKanban` hook — initializes a new project with all 4 cards, sets Style Selector and Beat Butcher to `UP_NEXT`, Entity Editor and Arc Assembler to `TODO`
+- [x] Wire `CreateProjectModal` to `createProject` action
+- [x] On project creation, pass script text through to Beat Butcher's initial state via `useSceneSegmentation`
+- [x] Verify new project card appears correctly in Projects Kanban
 
-#### 1D. Card Dependency & Status Logic
-- [ ] Add `unlockDownstream` logic to `useKanban` — when a card reaches `IN_REVIEW`, move the next card from `TODO` to `UP_NEXT`
-- [ ] Add `markInReview` action — sets card to `IN_REVIEW` (triggered by Continue button on each card's work screen)
-- [ ] Add `markDone` action — sets card to `DONE`, locks it (triggered by unique "Mark as Done" button visible only on `IN_REVIEW` cards)
-- [ ] Add `flagOutdated` logic — when a card in `IN_REVIEW` is edited, all downstream cards that are `IN_PROGRESS` or `IN_REVIEW` get an `isOutdated: true` flag
-- [ ] Add outdated badge rendering to `UniversalModuleCard` — "Outdated" pill overlay when `isOutdated` is true
-- [ ] Add `clearOutdated` logic — flag clears when the outdated card is re-reviewed and marked back to `IN_REVIEW`
-- [ ] Verify full unlock chain works: create project → butcher beats → entity editor unlocks → assemble arc unlocks
+#### 1D. Card Dependency & Status Logic ✅ COMPLETE
+- [x] Add `unlockDownstream` logic to `useKanban` — when a card reaches `IN_REVIEW`, move the next card from `TODO` to `UP_NEXT`
+- [x] Add `markInReview` action — sets card to `IN_REVIEW` (triggered by Continue button on each card's work screen)
+- [x] Add `markDone` action — sets card to `DONE`, locks it (triggered by unique "Mark as Done" button visible only on `IN_REVIEW` cards)
+- [x] Add `flagOutdated` logic — when a card in `IN_REVIEW` is edited, all downstream cards that are `IN_PROGRESS` or `IN_REVIEW` get an `isOutdated: true` flag
+- [x] Add outdated badge rendering to `UniversalModuleCard` — "Outdated" pill overlay when `isOutdated` is true
+- [x] Add `clearOutdated` logic — flag clears when the outdated card is re-reviewed and marked back to `IN_REVIEW`
+- [x] Verify full unlock chain works: create project → butcher beats → entity editor unlocks → assemble arc unlocks
 
-#### 1E. PowerSync SDK Wiring
-- [ ] Install PowerSync React Native SDK: `@powersync/react-native`
-- [ ] Create `lib/powersync.ts` — PowerSync client setup, schema definition for `pipelines` table, connector to Supabase
-- [ ] Wrap root `_layout.tsx` in `PowerSyncProvider`
-- [ ] Replace any existing Supabase direct calls in hooks with PowerSync watched queries
-- [ ] Verify data persists across app restarts (SQLite offline)
-- [ ] Verify data syncs to Supabase when online
+#### 1E. PowerSync SDK Wiring ✅ COMPLETE
+- [x] Install PowerSync React Native SDK: `@powersync/react-native`
+- [x] Create `lib/powersync.ts` — PowerSync client setup, schema definition for `pipelines` table, connector to Supabase
+- [x] Wrap root `_layout.tsx` in `PowerSyncProvider`
+- [x] Replace any existing Supabase direct calls in hooks with PowerSync watched queries
+- [x] Verify data persists across app restarts (SQLite offline)
+- [x] Verify data syncs to Supabase when online
 
-#### 1F. Sync Status Dot
-- [ ] Add `usePowerSyncStatus` hook — returns `'online' | 'offline'`
-- [ ] Add dot indicator to `NavigationHeader` — top right, `colors.success` when online, `colors.error` when offline, 8px diameter, no label
+#### 1F. Sync Status Dot ✅ COMPLETE
+- [x] Add `usePowerSyncStatus` hook — returns `'online' | 'offline'`
+- [x] Add dot indicator to `NavigationHeader` — top right, `colors.success` when online, `colors.error` when offline, 8px diameter, no label
 
 ---
 
 ### STAGE 2 — The Three Upstream Cards
 
-#### 2A. Beat Butcher — Minor Additions
-- [ ] Add delete affordance to first card — long-press or swipe reveals delete option, removes the first beat entirely
-- [ ] Add delete affordance to last card — same mechanic, removes last beat
-- [ ] Verify minimum 1 card always remains (cannot delete if only one scene exists)
-- [ ] Wire Beat Butcher's Continue → `markInReview('beat-butcher')` → triggers Entity Editor unlock
+#### 2A. Beat Butcher — Minor Additions ✅ COMPLETE
+- [x] Add delete affordance to first card — long-press or swipe reveals delete option, removes the first beat entirely
+- [x] Add delete affordance to last card — same mechanic, removes last beat
+- [x] Verify minimum 1 card always remains (cannot delete if only one scene exists)
+- [x] Wire Beat Butcher's Continue → `markInReview('beat-butcher')` → triggers Entity Editor unlock
 
 #### 2B. Style Selector — Complete It
 - [ ] Bundle all 690 collage images from `Style Collages/` as local assets — determine bundling strategy (require() map vs expo-asset)
