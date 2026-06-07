@@ -196,8 +196,8 @@ function StyleSelectorContent() {
           showsVerticalScrollIndicator={false}
           removeClippedSubviews
           initialNumToRender={12}
-          maxToRenderPerBatch={16}
-          windowSize={5}
+          maxToRenderPerBatch={12}
+          windowSize={3}
           ListEmptyComponent={
             isLoading ? null : (
               <View style={styles.emptyState}>

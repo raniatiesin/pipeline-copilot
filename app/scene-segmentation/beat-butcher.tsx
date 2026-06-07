@@ -22,7 +22,7 @@
 
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   LayoutChangeEvent,
@@ -40,6 +40,7 @@ import {
 } from '../../components/scene-segmentation/scene-mapper';
 import { ScreenLayout } from '../../components/ui/ScreenLayout';
 import { stageCallbacks } from '../../lib/stageCallbacks';
+import { updateProject } from '../../lib/database';
 import { DROP_ZONE_HEIGHT } from '../../constants/sceneMapper';
 import { colors, spacing, typography } from '../../constants/theme';
 import { useSceneSegmentation } from '../../hooks/useSceneSegmentation';
@@ -51,6 +52,8 @@ import type { CardLayoutRect } from '../../types/scene-mapper-gestures';
 // ============================================
 
 export default function BeatButcherScreen() {
+  const { projectId } = useLocalSearchParams<{ projectId?: string }>();
+
   // Mark this card IN_PROGRESS when screen first opens (UP_NEXT → IN_PROGRESS)
   useEffect(() => {
     stageCallbacks.markInProgress('beat-butcher');
@@ -297,10 +300,20 @@ export default function BeatButcherScreen() {
 
   // ── Navigation ──
 
-  const handleContinue = useCallback(() => {
+  const handleContinue = useCallback(async () => {
+    // Save scenes to DB so Entity Editor can read them on mount
+    if (projectId) {
+      try {
+        await updateProject(projectId, {
+          beat_butcher_output: JSON.stringify(state.scenes),
+        });
+      } catch (err) {
+        console.error('[BeatButcher] failed to save output:', err);
+      }
+    }
     stageCallbacks.markInReview('beat-butcher');
     router.back();
-  }, []);
+  }, [projectId, state.scenes]);
 
   const handleBack = useCallback(() => {
     router.back();

@@ -32,6 +32,10 @@ interface SceneSegmentationContextValue {
   state: SceneSegmentationState;
   setScript: (script: string) => void;
   processScript: () => void;
+  /** Replace all scenes (used by Entity Editor to seed from DB on mount) */
+  setScenes: (scenes: Scene[]) => void;
+  /** Replace all subject categories (used by Entity Editor to restore from DB) */
+  setSubjectCategories: (cats: SubjectCategory[]) => void;
   splitSceneAt: (sceneId: string, wordIndex: number) => void;
   mergeScenesById: (sceneId1: string, sceneId2: string) => void;
   deleteScene: (sceneId: string) => void;
@@ -356,6 +360,14 @@ export const SceneSegmentationProvider: React.FC<{ children: React.ReactNode }> 
     });
   }, []);
 
+  const setScenes = useCallback((scenes: Scene[]) => {
+    setState(prev => ({ ...prev, scenes }));
+  }, []);
+
+  const setSubjectCategories = useCallback((subjectCategories: SubjectCategory[]) => {
+    setState(prev => ({ ...prev, subjectCategories }));
+  }, []);
+
   const reset = useCallback(() => { setState(initialState); }, []);
 
   const sceneCount = useMemo(() => state.scenes.length, [state.scenes]);
@@ -365,7 +377,8 @@ export const SceneSegmentationProvider: React.FC<{ children: React.ReactNode }> 
   const pendingSubjects = useMemo(() => totalSubjects - assignedSubjects, [totalSubjects, assignedSubjects]);
 
   const value = useMemo<SceneSegmentationContextValue>(() => ({
-    state, setScript, processScript, splitSceneAt, mergeScenesById, deleteScene, insertSceneAfter,
+    state, setScript, processScript, setScenes, setSubjectCategories,
+    splitSceneAt, mergeScenesById, deleteScene, insertSceneAfter,
     moveWordsToScene, movePhraseToScene, splitAndMoveWords, expandSubject,
     createSubject, createSubjectWithCategory, createSubjectInCategory, deleteSubject,
     createCategory, assignSubjectToCategory, unassignSubject, renameCategory, deleteCategory,
@@ -373,7 +386,8 @@ export const SceneSegmentationProvider: React.FC<{ children: React.ReactNode }> 
     insertSceneAtIndex, reorderSceneById,
     sceneCount, totalDuration, totalSubjects, assignedSubjects, pendingSubjects, reset,
   }), [
-    state, setScript, processScript, splitSceneAt, mergeScenesById, deleteScene, insertSceneAfter,
+    state, setScript, processScript, setScenes, setSubjectCategories,
+    splitSceneAt, mergeScenesById, deleteScene, insertSceneAfter,
     moveWordsToScene, movePhraseToScene, splitAndMoveWords, expandSubject,
     createSubject, createSubjectWithCategory, createSubjectInCategory, deleteSubject,
     createCategory, assignSubjectToCategory, unassignSubject, renameCategory, deleteCategory,

@@ -56,7 +56,7 @@ function CollageImageBase({ id, isSelected, onSelect }: CollageImageProps) {
       ]}
     >
       {source ? (
-        <Image source={source} style={styles.image} resizeMode="cover" />
+        <Image source={source} style={styles.image} resizeMode="contain" />
       ) : (
         <View style={styles.imageFallback}>
           <Text style={styles.fallbackText}>{id}</Text>
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     borderWidth: getLineThickness('base'),
     borderColor: colors.border,
     overflow: 'hidden',
-    backgroundColor: colors.primary,
+    backgroundColor: '#1a1a1a',
   },
   cardSelected: {
     borderWidth: 3,

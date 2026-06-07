@@ -55,8 +55,8 @@ export function KanbanBoard({
   const { width } = useWindowDimensions();
   const kanban = useKanban();
 
-  // 85% columns with 15% peek of the next column
-  const columnWidth = Math.floor(width * 0.85);
+  // 90% columns — wide enough to feel immersive, 10% peek of the adjacent column
+  const columnWidth = Math.floor(width * 0.90);
   const snapInterval = columnWidth;
 
   // Get counts for all statuses
@@ -104,7 +104,7 @@ export function KanbanBoard({
         pagingEnabled={false}
         snapToInterval={snapInterval}
         snapToAlignment="start"
-        decelerationRate="fast"
+        decelerationRate={0.994}
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleScrollEnd}
         contentContainerStyle={styles.scrollContent}
@@ -140,6 +140,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    // No gap, no padding — full-width columns, paging handles alignment
+    alignItems: 'flex-start',
   },
 });

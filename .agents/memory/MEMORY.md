@@ -1,5 +1,5 @@
 - [Web compat — PowerSync + Supabase](web-compat-powersync-supabase.md) — metro.config.js resolver alias + ws SSR transport fix; both required for web preview to load.
-- [SceneSegmentation provider scope](scene-segmentation-scope.md) — useSceneSegmentation is ONLY valid inside app/scene-segmentation/ route group; outside screens must use empty/mock data.
+- [SceneSegmentation provider scope + DB seeding](scene-segmentation-scope.md) — useSceneSegmentation is ONLY valid inside app/scene-segmentation/ route group. setScenes/setSubjectCategories added to context; entity-editor seeds from DB on mount via watchProject (mirrors ArcAssembler). Beat Butcher saves beat_butcher_output to DB on continue.
 - [Project-level KanbanItem pattern](kanban-project-item.md) — Non-stage items use moduleId:'project' (not in MODULE_ORDER) + progress:10 to force IN_PROGRESS status via deriveStatus.
 - [Stage callbacks bridge](stage-callbacks-bridge.md) — lib/stageCallbacks.ts is a mutable-ref bridge for cross-route markInReview calls; stages.tsx registers on mount, work screens call it.
 - [Web stubs for native-only packages](web-stubs.md) — metro.config.js resolveRequest redirects @powersync/react-native + @azure polyfill to stubs/ for web; app/_layout.web.tsx + lib/powersync.web.ts also exist as platform extensions.
@@ -7,3 +7,5 @@
 - [KanbanContextValue shape](kanban-context-shape.md) — Does NOT expose items directly; use state.items (Record<string,KanbanItem>). state.items is under KanbanState, accessed via useKanban().state.items.
 - [Entity editor atomic subject creation](entity-editor-atomic.md) — createSubject + createCategory must be called atomically; added createSubjectWithCategory / createSubjectInCategory to useSceneSegmentation to avoid async ID mismatch.
 - [Arc Assembler build — Stage 3A](arc-assembler-build.md) — DB read pattern, debounced write, mode-switch scroll coordination, SubjectBriefPopup nav flow, JSX apostrophe TS error.
+- [Pipeline projectId routing](pipeline-projectid-routing.md) — projectId must be threaded through every route in the pipeline: stages → input (prefill+projectId) → beat-butcher (projectId) AND stages → entity-editor (projectId) AND stages → arc-assembler (projectId). Missing projectId = no DB save/load.
+- [Reusable ConfirmModal](confirm-modal-pattern.md) — components/ui/ConfirmModal.tsx is the standard for all destructive confirmations. Uses Modal transparent + dark overlay (no expo-blur needed). Replace any inline Alert.alert pattern for visual consistency.

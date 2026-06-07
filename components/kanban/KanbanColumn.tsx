@@ -204,10 +204,12 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     paddingHorizontal: kanbanLayout.columnPaddingH,
     flexGrow: 1,
+    alignItems: 'center',
   },
   cardsGrid: {
     gap: spacing.sm,
     width: '100%',
+    alignItems: 'center',
   },
   cardWrapper: {
     marginHorizontal: spacing.sm,

@@ -10,9 +10,8 @@
  * - Scene-style header: module icon, title pill, progress percent
  * - Description in the lower body section
  * - "MARK AS DONE" action button — visible only on IN_REVIEW cards
- * - Long-press delete strip — visible only on project cards (moduleId === 'project')
- *   Slides in below the card with a DELETE button and a cancel target.
- *   Confirmation Alert prevents accidental deletion.
+ * - Long-press delete — visible only on project cards (moduleId === 'project')
+ *   Triggers a ConfirmModal with dark backdrop. Confirmation required.
  *
  * @module components/kanban/KanbanCard
  */
@@ -20,12 +19,7 @@
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { KANBAN_STATUS } from '@/constants/kanbanStatus';
 import { MODULE_CONFIG } from '@/constants/kanbanTheme';
@@ -34,6 +28,7 @@ import { deleteProject } from '@/lib/database';
 import { useKanban } from '@/hooks/useKanban';
 import type { KanbanCardProps } from '@/types/kanban';
 
+import { ConfirmModal } from '../ui/ConfirmModal';
 import { UniversalModuleCard } from '../ui/card';
 
 // ============================================
@@ -51,51 +46,25 @@ export const KanbanCard = React.memo(function KanbanCard({
   const isInReview = item.status === KANBAN_STATUS.IN_REVIEW;
   const effectiveWidth = cardWidth || 300;
 
-  // ── Delete strip (project cards only) ────────────────────────────
-  const [isActionOpen, setIsActionOpen] = useState(false);
-  const stripHeight = useSharedValue(0);
+  // ── Delete confirmation modal (project cards only) ────────────────
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
-  const stripStyle = useAnimatedStyle(() => ({
-    height: withSpring(stripHeight.value, { damping: 20, stiffness: 300 }),
-    overflow: 'hidden',
-  }));
-
-  const openDeleteStrip = useCallback(() => {
+  const openDeleteModal = useCallback(() => {
     if (!isProjectCard) return;
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    setIsActionOpen(true);
-    stripHeight.value = 52;
-  }, [isProjectCard, stripHeight]);
+    setDeleteModalVisible(true);
+  }, [isProjectCard]);
 
-  const closeDeleteStrip = useCallback(() => {
-    setIsActionOpen(false);
-    stripHeight.value = 0;
-  }, [stripHeight]);
+  const handleDeleteConfirm = useCallback(async () => {
+    setDeleteModalVisible(false);
+    await deleteProject(item.id);
+  }, [item.id]);
 
-  const handleDeletePress = useCallback(() => {
-    Alert.alert(
-      'Delete this project?',
-      'This cannot be undone.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-          onPress: closeDeleteStrip,
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setIsActionOpen(false);
-            stripHeight.value = 0;
-            await deleteProject(item.id);
-          },
-        },
-      ],
-    );
-  }, [item.id, closeDeleteStrip, stripHeight]);
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteModalVisible(false);
+  }, []);
 
   // ── Icon ─────────────────────────────────────────────────────────
   const iconName = useMemo(() => {
@@ -107,12 +76,8 @@ export const KanbanCard = React.memo(function KanbanCard({
 
   // ── Handlers ─────────────────────────────────────────────────────
   const handlePress = useCallback(() => {
-    if (isActionOpen) {
-      closeDeleteStrip();
-      return;
-    }
     onPress?.(item);
-  }, [item, onPress, isActionOpen, closeDeleteStrip]);
+  }, [item, onPress]);
 
   const handleNoteChange = useCallback((note: string) => {
     updateNote(item.id, note);
@@ -128,7 +93,7 @@ export const KanbanCard = React.memo(function KanbanCard({
     <View>
       <UniversalModuleCard
         onPress={handlePress}
-        onLongPress={isProjectCard ? openDeleteStrip : undefined}
+        onLongPress={isProjectCard ? openDeleteModal : undefined}
         iconName={iconName}
         title={item.title}
         progressPercent={item.progress ?? 0}
@@ -137,35 +102,9 @@ export const KanbanCard = React.memo(function KanbanCard({
         isOutdated={item.isOutdated}
         onChangeNote={handleNoteChange}
         accessibilityLabel={`${item.title}. ${item.description || ''}`}
-        accessibilityHint={isProjectCard ? 'Double tap to open, long press for options' : 'Double tap to open'}
+        accessibilityHint={isProjectCard ? 'Double tap to open, long press to delete' : 'Double tap to open'}
         style={{ width: effectiveWidth }}
       />
-
-      {/* Delete strip — project cards only, slides in on long press */}
-      {isProjectCard && (
-        <Animated.View style={[styles.deleteStrip, { width: effectiveWidth }, stripStyle]}>
-          <TouchableOpacity
-            onPress={handleDeletePress}
-            activeOpacity={0.8}
-            style={styles.deleteButton}
-            accessibilityRole="button"
-            accessibilityLabel="Delete project"
-          >
-            <Feather name="trash-2" size={14} color={colors.text.inverse} />
-            <Text style={styles.deleteText}>DELETE</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={closeDeleteStrip}
-            activeOpacity={0.8}
-            style={styles.cancelButton}
-            accessibilityRole="button"
-            accessibilityLabel="Cancel"
-          >
-            <Text style={styles.cancelText}>CANCEL</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      )}
 
       {/* "Mark as Done" — only on IN_REVIEW stage cards */}
       {isInReview && !isProjectCard && (
@@ -180,6 +119,18 @@ export const KanbanCard = React.memo(function KanbanCard({
           <Text style={styles.markDoneText}>MARK AS DONE</Text>
         </TouchableOpacity>
       )}
+
+      {/* Confirm delete modal — rendered at root, appears above everything */}
+      <ConfirmModal
+        visible={deleteModalVisible}
+        title="Delete this project?"
+        message="All pipeline data will be permanently removed. This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Keep it"
+        destructive
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
     </View>
   );
 });
@@ -189,48 +140,6 @@ export const KanbanCard = React.memo(function KanbanCard({
 // ============================================
 
 const styles = StyleSheet.create({
-  // ── Delete strip ─────────────────────────────────────────────────
-  deleteStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.xs,
-    borderRadius: borderRadius.md,
-    borderWidth: 3,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    backgroundColor: colors.error,
-    ...shadows.hard,
-  },
-  deleteButton: {
-    flex: 1,
-    height: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-  },
-  deleteText: {
-    ...typography.button,
-    color: colors.text.inverse,
-    letterSpacing: 0.8,
-  },
-  cancelButton: {
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-    borderLeftWidth: 2,
-    borderLeftColor: 'rgba(255,255,255,0.3)',
-  },
-  cancelText: {
-    ...typography.caption,
-    color: colors.text.inverse,
-    fontWeight: '700',
-    opacity: 0.8,
-  },
-
-  // ── Mark as Done ─────────────────────────────────────────────────
   markDoneButton: {
     flexDirection: 'row',
     alignItems: 'center',
