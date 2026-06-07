@@ -289,3 +289,41 @@ export async function updateProject(
     [...values, now, id],
   );
 }
+
+// ============================================
+// MAINTENANCE & MIGRATIONS
+// ============================================
+
+/**
+ * Clean up rows with invalid UUID format.
+ * Removes any rows where id doesn't match RFC 4122 UUID format.
+ * Should be called on app startup.
+ */
+export async function cleanupInvalidUUIDs(): Promise<number> {
+  try {
+    // UUID v4 pattern: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    // Fetch all rows and check their IDs
+    const result = await powerSyncDb.execute('SELECT id FROM pipelines');
+    const rows = result.rows?._array as Array<{ id: string }> ?? [];
+    
+    let deletedCount = 0;
+    for (const row of rows) {
+      if (!uuidRegex.test(row.id)) {
+        console.warn(`[Cleanup] Deleting row with invalid UUID: ${row.id}`);
+        await powerSyncDb.execute('DELETE FROM pipelines WHERE id = ?', [row.id]);
+        deletedCount++;
+      }
+    }
+    
+    if (deletedCount > 0) {
+      console.log(`[Cleanup] Removed ${deletedCount} rows with invalid UUIDs`);
+    }
+    
+    return deletedCount;
+  } catch (error) {
+    console.error('[Cleanup] Error during UUID validation:', error instanceof Error ? error.message : 'unknown');
+    return 0;
+  }
+}

@@ -13,6 +13,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors } from '../constants/theme';
+import { cleanupInvalidUUIDs } from '../lib/database';
 import { connector, powerSyncDb } from '../lib/powersync';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -22,6 +23,11 @@ export default function RootLayout() {
     // Hide splash immediately — UI must render regardless of network state
     // Don't wait for any network initialization
     SplashScreen.hideAsync().catch(() => {});
+
+    // Clean up any leftover data with invalid UUIDs from before the fix
+    cleanupInvalidUUIDs().catch(err => {
+      console.warn('[Cleanup] Failed to clean invalid UUIDs:', err);
+    });
 
     // Defer PowerSync connection to much later (after UI is fully stable)
     // This prevents network errors from blocking the initial render
