@@ -168,39 +168,28 @@ export function KanbanProvider({
       for await (const rows of query) {
         if (aborted) break;
 
-        // Debug: log the actual structure PowerSync returns
+        // PowerSync watch() yields arrays directly
         if (!Array.isArray(rows)) {
-          console.warn('[useKanban] watch returned non-array:', {
-            type: typeof rows,
-            keys: rows ? Object.keys(rows) : null,
-            value: rows,
-          });
-          // Try to extract array from common PowerSync response formats
-          const arrayData = rows?.rows || rows?.data || (Array.isArray(rows) ? rows : null);
-          if (!arrayData) continue;
-          // Continue with extracted data
-        }
-
-        // Ensure we have an array
-        const rowsArray = Array.isArray(rows) ? rows : (rows?.rows || rows?.data || []);
-        
-        if (!rowsArray) {
+          console.warn('[useKanban] watch returned non-array (unexpected):', typeof rows);
           continue;
         }
 
-        rawRowsRef.current = rowsArray;
+        rawRowsRef.current = rows;
 
         const newItems: Record<string, KanbanItem> = {};
 
         if (projectId) {
           // Stage mode: map the single row's card_statuses to 4 stage items
-          if (rowsArray.length > 0) {
-            rowToStageItems(rowsArray[0]).forEach(item => { newItems[item.id] = item; });
+          if (rows.length > 0) {
+            rowToStageItems(rows[0]).forEach(item => { newItems[item.id] = item; });
           }
         } else {
           // Project mode: each row is a project-level card
-          if (rowsArray.length > 0) {
-            rowsArray.map(rowToProjectItem).forEach(item => { newItems[item.id] = item; });
+          if (rows.length > 0) {
+            rows.forEach(row => {
+              const item = rowToProjectItem(row);
+              newItems[item.id] = item;
+            });
           }
         }
 

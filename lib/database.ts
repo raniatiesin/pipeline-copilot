@@ -190,10 +190,12 @@ export function rowToStageItems(row: PipelineRow): KanbanItem[] {
  * Yields a new array each time the DB changes.
  */
 export async function* watchProjects(): AsyncGenerator<PipelineRow[]> {
-  for await (const rows of powerSyncDb.watch<PipelineRow>(
+  for await (const result of powerSyncDb.watch(
     'SELECT * FROM pipelines ORDER BY created_at DESC',
     [],
   )) {
+    // Extract rows from QueryResult — they're in .rows?._array
+    const rows = (result.rows?._array as PipelineRow[]) ?? [];
     yield rows;
   }
 }
@@ -203,10 +205,12 @@ export async function* watchProjects(): AsyncGenerator<PipelineRow[]> {
  * Yields each time the row changes.
  */
 export async function* watchProject(projectId: string): AsyncGenerator<PipelineRow[]> {
-  for await (const rows of powerSyncDb.watch<PipelineRow>(
+  for await (const result of powerSyncDb.watch(
     'SELECT * FROM pipelines WHERE id = ? LIMIT 1',
     [projectId],
   )) {
+    // Extract rows from QueryResult — they're in .rows?._array
+    const rows = (result.rows?._array as PipelineRow[]) ?? [];
     yield rows;
   }
 }
