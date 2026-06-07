@@ -26,12 +26,13 @@ export function useSyncStatus(): SyncStatusResult {
   useEffect(() => {
     if (!db) return;
 
-    // Set initial state directly from the database instance
-    setConnected(db.currentStatus?.connected ?? false);
+    const initial = db.currentStatus?.connected ?? false;
+    console.log('[SyncStatus] initial connected:', initial);
+    setConnected(initial);
 
-    // Subscribe to status changes via the public registerListener API
     const unsubscribe = db.registerListener({
       statusChanged: (status) => {
+        console.log('[SyncStatus] statusChanged:', status.connected);
         setConnected(status.connected ?? false);
       },
     });
