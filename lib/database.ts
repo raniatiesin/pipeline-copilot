@@ -304,17 +304,21 @@ export async function cleanupInvalidUUIDs(): Promise<number> {
     // UUID v4 pattern: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     
-    // Fetch all rows and check their IDs
-    const result = await powerSyncDb.execute('SELECT id FROM pipelines');
-    const rows = result.rows?._array as Array<{ id: string }> ?? [];
-    
+    // Use watch() to safely query rows (one-time read via for-await)
     let deletedCount = 0;
-    for (const row of rows) {
-      if (!uuidRegex.test(row.id)) {
-        console.warn(`[Cleanup] Deleting row with invalid UUID: ${row.id}`);
-        await powerSyncDb.execute('DELETE FROM pipelines WHERE id = ?', [row.id]);
-        deletedCount++;
+    for await (const result of powerSyncDb.watch('SELECT id FROM pipelines')) {
+      const rows = (result.rows?._array as Array<{ id: string }>) ?? [];
+      
+      for (const row of rows) {
+        if (!uuidRegex.test(row.id)) {
+          console.warn(`[Cleanup] Deleting row with invalid UUID: ${row.id}`);
+          await powerSyncDb.execute('DELETE FROM pipelines WHERE id = ?', [row.id]);
+          deletedCount++;
+        }
       }
+      
+      // Only process first result from watch generator
+      break;
     }
     
     if (deletedCount > 0) {
