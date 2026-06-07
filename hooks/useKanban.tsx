@@ -26,28 +26,28 @@ import { KANBAN_STATUS } from '@/constants/kanbanStatus';
 import { MODULE_ORDER } from '@/constants/kanbanTheme';
 import type { CardStatuses, PipelineRow, StageCardStatus } from '@/lib/database';
 import {
-  createProject as dbCreateProject,
-  updateProject as dbUpdateProject,
-  rowToProjectItem,
-  rowToStageItems,
-  watchProject,
-  watchProjects,
-  getProjects,
+    createProject as dbCreateProject,
+    updateProject as dbUpdateProject,
+    getProjects,
+    rowToProjectItem,
+    rowToStageItems,
+    watchProject,
+    watchProjects,
 } from '@/lib/database';
 import type {
-  CreateProjectData,
-  KanbanContextValue,
-  KanbanItem,
-  KanbanStatus,
+    CreateProjectData,
+    KanbanContextValue,
+    KanbanItem,
+    KanbanStatus,
 } from '@/types/kanban';
 import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
 } from 'react';
 
 // ============================================
