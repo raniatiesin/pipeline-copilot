@@ -16,23 +16,23 @@ import { Feather } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
-  Dimensions,
-  FlatList,
-  LayoutAnimation,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  UIManager,
-  View,
+    Alert,
+    Dimensions,
+    FlatList,
+    LayoutAnimation,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    UIManager,
+    View,
 } from 'react-native';
 
-import { ScreenLayout } from '@/components/ui/ScreenLayout';
 import { CollageImage } from '@/components/style-selector/CollageImage';
-import { styleMatcherData } from '@/constants/styleMatcherData';
+import { ScreenLayout } from '@/components/ui/ScreenLayout';
 import { getLineThickness } from '@/constants/line';
+import { styleMatcherData } from '@/constants/styleMatcherData';
 import { borderRadius, colors, spacing, typography } from '@/constants/theme';
 import { StyleSelectorProvider, useStyleSelector } from '@/hooks/useStyleSelector';
 import { stageCallbacks } from '@/lib/stageCallbacks';
