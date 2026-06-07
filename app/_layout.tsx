@@ -26,8 +26,9 @@ export default function RootLayout() {
         .then(async () => {
           try {
             await powerSyncDb.connect(connector);
+            console.log('[PowerSync] connect resolved, status:', powerSyncDb.currentStatus);
           } catch (error) {
-            console.error('[PowerSync] Connection attempt failed:', error);
+            console.error('[PowerSync] connect error:', error);
           }
         })
         .catch((error) => {
