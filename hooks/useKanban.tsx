@@ -168,6 +168,12 @@ export function KanbanProvider({
       for await (const rows of query) {
         if (aborted) break;
 
+        // Guard: ensure rows is an array before processing
+        if (!rows || !Array.isArray(rows)) {
+          console.warn('[useKanban] watch returned non-array rows:', typeof rows);
+          continue;
+        }
+
         rawRowsRef.current = rows;
 
         const newItems: Record<string, KanbanItem> = {};
@@ -179,7 +185,9 @@ export function KanbanProvider({
           }
         } else {
           // Project mode: each row is a project-level card
-          rows.map(rowToProjectItem).forEach(item => { newItems[item.id] = item; });
+          if (rows.length > 0) {
+            rows.map(rowToProjectItem).forEach(item => { newItems[item.id] = item; });
+          }
         }
 
         setItems(applyDerivedStatuses(newItems));
