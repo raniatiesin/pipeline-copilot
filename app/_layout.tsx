@@ -11,9 +11,9 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as FileSystem from 'expo-file-system';
 
 import { colors } from '../constants/theme';
-import { cleanupInvalidUUIDs } from '../lib/database';
 import { connector, powerSyncDb } from '../lib/powersync';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -21,34 +21,42 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 export default function RootLayout() {
   useEffect(() => {
     // Hide splash immediately — UI must render regardless of network state
-    // Don't wait for any network initialization
     SplashScreen.hideAsync().catch(() => {});
 
-    // Clean up any leftover data with invalid UUIDs from before the fix
-    cleanupInvalidUUIDs().catch(err => {
-      console.warn('[Cleanup] Failed to clean invalid UUIDs:', err);
-    });
+    // AGGRESSIVE: Delete the entire PowerSync database to clear any corrupted sync state
+    // This handles the case where bad UUIDs are stuck in PowerSync's internal sync queue
+    const resetPowerSync = async () => {
+      try {
+        const dbPath = `${FileSystem.getConstants().documentDirectory}PowerSync`;
+        const exists = await FileSystem.getInfoAsync(dbPath);
+        if (exists.exists) {
+          console.log('[Init] Clearing PowerSync database directory:', dbPath);
+          await FileSystem.deleteAsync(dbPath, { idempotent: true });
+          console.log('[Init] PowerSync database cleared');
+        }
+      } catch (error) {
+        console.warn('[Init] Could not clear PowerSync database:', error);
+        // Continue anyway — not critical
+      }
+    };
+
+    // Clear before connecting
+    resetPowerSync().catch(console.warn);
 
     // Defer PowerSync connection to much later (after UI is fully stable)
-    // This prevents network errors from blocking the initial render
     const connectionTimer = setTimeout(() => {
-      // Don't await — fire and forget
-      // PowerSync will handle retries and connection automatically
       Promise.resolve()
         .then(async () => {
           try {
             await powerSyncDb.connect(connector);
           } catch (error) {
-            // Non-blocking — PowerSync retries automatically
-            // App works fully offline until connection succeeds
             console.warn('[PowerSync] Connection attempt failed (app offline):', error);
           }
         })
         .catch((error) => {
-          // Catch any unhandled errors
           console.error('[PowerSync] Initialization error:', error);
         });
-    }, 500); // Wait 500ms after UI renders before trying to connect
+    }, 500);
 
     return () => {
       clearTimeout(connectionTimer);
