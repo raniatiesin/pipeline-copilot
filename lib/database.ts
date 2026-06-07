@@ -186,6 +186,17 @@ export function rowToStageItems(row: PipelineRow): KanbanItem[] {
 // ============================================
 
 /**
+ * One-time read of all pipelines.
+ * Used to populate initial state before watching for changes.
+ */
+export async function getProjects(): Promise<PipelineRow[]> {
+  const result = await powerSyncDb.getAll(
+    'SELECT * FROM pipelines ORDER BY created_at DESC'
+  );
+  return (result as PipelineRow[]) ?? [];
+}
+
+/**
  * Watches all pipeline rows (projects).
  * Yields a new array each time the DB changes.
  */
@@ -247,7 +258,6 @@ export async function createProject(data: {
   script: string;
 }): Promise<string> {
   const id = generateUUID();
-  console.log('[DB] Creating new project with UUID:', id);
   const now = new Date().toISOString();
 
   const defaultStatuses: CardStatuses = (MODULE_ORDER as readonly string[]).reduce(
@@ -273,7 +283,6 @@ export async function createProject(data: {
     ],
   );
 
-  console.log('[DB] Project created successfully:', id);
   return id;
 }
 

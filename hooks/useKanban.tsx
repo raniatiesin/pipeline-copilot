@@ -26,27 +26,28 @@ import { KANBAN_STATUS } from '@/constants/kanbanStatus';
 import { MODULE_ORDER } from '@/constants/kanbanTheme';
 import type { CardStatuses, PipelineRow, StageCardStatus } from '@/lib/database';
 import {
-    createProject as dbCreateProject,
-    updateProject as dbUpdateProject,
-    rowToProjectItem,
-    rowToStageItems,
-    watchProject,
-    watchProjects,
+  createProject as dbCreateProject,
+  updateProject as dbUpdateProject,
+  rowToProjectItem,
+  rowToStageItems,
+  watchProject,
+  watchProjects,
+  getProjects,
 } from '@/lib/database';
 import type {
-    CreateProjectData,
-    KanbanContextValue,
-    KanbanItem,
-    KanbanStatus,
+  CreateProjectData,
+  KanbanContextValue,
+  KanbanItem,
+  KanbanStatus,
 } from '@/types/kanban';
 import React, {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from 'react';
 
 // ============================================
@@ -163,12 +164,35 @@ export function KanbanProvider({
     let aborted = false;
 
     const run = async () => {
+      // For project mode: load initial state from DB before watching
+      if (!projectId) {
+        try {
+          const initialRows = await getProjects();
+          if (!aborted) {
+            rawRowsRef.current = initialRows;
+            const newItems: Record<string, KanbanItem> = {};
+            initialRows.forEach(row => {
+              const item = rowToProjectItem(row);
+              newItems[item.id] = item;
+            });
+            setItems(applyDerivedStatuses(newItems));
+            setIsLoading(false);
+          }
+        } catch (err) {
+          if (!aborted) {
+            console.error('[useKanban] getProjects error:', err);
+            setIsLoading(false);
+          }
+          return;
+        }
+      }
+
+      // Then watch for changes
       const query = projectId ? watchProject(projectId) : watchProjects();
 
       for await (const rows of query) {
         if (aborted) break;
 
-        // PowerSync watch() yields arrays directly
         if (!Array.isArray(rows)) {
           console.warn('[useKanban] watch returned non-array (unexpected):', typeof rows);
           continue;
