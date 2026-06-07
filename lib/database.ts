@@ -220,10 +220,16 @@ export async function* watchProject(projectId: string): AsyncGenerator<PipelineR
 // ============================================
 
 /**
- * Generates a valid UUID v4 format for Supabase.
- * Format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+ * Generates a valid UUID v4 format using the standard crypto API.
  */
 function generateUUID(): string {
+  // Use native crypto.randomUUID() for RFC 4122 compliant UUIDs
+  // Fallback to manual generation if crypto is unavailable
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  // Fallback for environments without crypto.randomUUID
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
@@ -241,6 +247,7 @@ export async function createProject(data: {
   script: string;
 }): Promise<string> {
   const id = generateUUID();
+  console.log('[DB] Creating new project with UUID:', id);
   const now = new Date().toISOString();
 
   const defaultStatuses: CardStatuses = (MODULE_ORDER as readonly string[]).reduce(
@@ -266,6 +273,7 @@ export async function createProject(data: {
     ],
   );
 
+  console.log('[DB] Project created successfully:', id);
   return id;
 }
 
@@ -304,14 +312,20 @@ export async function cleanupInvalidUUIDs(): Promise<number> {
     // UUID v4 pattern: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     
+    console.log('[Cleanup] Starting UUID validation scan...');
+    
     // Use watch() to safely query rows (one-time read via for-await)
     let deletedCount = 0;
+    let processedRows = 0;
+    
     for await (const result of powerSyncDb.watch('SELECT id FROM pipelines')) {
       const rows = (result.rows?._array as Array<{ id: string }>) ?? [];
+      console.log(`[Cleanup] Found ${rows.length} rows to check`);
+      processedRows = rows.length;
       
       for (const row of rows) {
         if (!uuidRegex.test(row.id)) {
-          console.warn(`[Cleanup] Deleting row with invalid UUID: ${row.id}`);
+          console.warn(`[Cleanup] INVALID UUID detected: "${row.id}" — deleting`);
           await powerSyncDb.execute('DELETE FROM pipelines WHERE id = ?', [row.id]);
           deletedCount++;
         }
@@ -322,12 +336,14 @@ export async function cleanupInvalidUUIDs(): Promise<number> {
     }
     
     if (deletedCount > 0) {
-      console.log(`[Cleanup] Removed ${deletedCount} rows with invalid UUIDs`);
+      console.log(`[Cleanup] ✅ Removed ${deletedCount} rows with invalid UUIDs (processed ${processedRows} total)`);
+    } else {
+      console.log(`[Cleanup] ✅ All ${processedRows} rows have valid UUIDs`);
     }
     
     return deletedCount;
   } catch (error) {
-    console.error('[Cleanup] Error during UUID validation:', error instanceof Error ? error.message : 'unknown');
+    console.error('[Cleanup] Failed during UUID validation:', error instanceof Error ? error.message : 'unknown');
     return 0;
   }
 }
