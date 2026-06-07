@@ -347,3 +347,37 @@ export async function cleanupInvalidUUIDs(): Promise<number> {
     return 0;
   }
 }
+
+/**
+ * Clear stuck transactions from PowerSync's internal CRUD upload queue.
+ * PowerSync stores pending uploads in the internal `ps_crud` table.
+ * If a bad UUID is stuck there, it will keep retrying forever.
+ * This deletes the stuck transaction directly.
+ *
+ * ONE-TIME USE: Run once on startup, then remove this function after first successful launch.
+ * Only needed during migration from old bad UUID format.
+ */
+export async function clearStuckCrudTransactions(): Promise<number> {
+  try {
+    console.log('[CRUD Cleanup] Clearing stuck transactions with bad UUIDs from PowerSync queue...');
+    
+    // Delete from PowerSync's internal CRUD queue any row containing the bad UUID pattern
+    // The `data` column contains JSON with the row data
+    const result = await powerSyncDb.execute(
+      'DELETE FROM ps_crud WHERE data LIKE ?',
+      ['%mq3gr8kf%'],
+    );
+
+    const rowsAffected = result.rowsAffected ?? 0;
+    if (rowsAffected > 0) {
+      console.log(`[CRUD Cleanup] ✅ Removed ${rowsAffected} stuck CRUD transaction(s) with bad UUID`);
+    } else {
+      console.log('[CRUD Cleanup] ✅ No stuck transactions found');
+    }
+
+    return rowsAffected;
+  } catch (error) {
+    console.warn('[CRUD Cleanup] Could not clear CRUD queue (may not exist yet):', error instanceof Error ? error.message : 'unknown');
+    return 0;
+  }
+}

@@ -13,7 +13,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors } from '../constants/theme';
-import { cleanupInvalidUUIDs } from '../lib/database';
+import { cleanupInvalidUUIDs, clearStuckCrudTransactions } from '../lib/database';
 import { connector, powerSyncDb } from '../lib/powersync';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -21,8 +21,13 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 export default function RootLayout() {
   useEffect(() => {
     // Hide splash immediately — UI must render regardless of network state
-    // Don't wait for any network initialization
     SplashScreen.hideAsync().catch(() => {});
+
+    // ONE-TIME: Clear stuck CRUD transactions from PowerSync's internal queue
+    // (only needed during migration from old bad UUID format)
+    clearStuckCrudTransactions().catch(err => {
+      console.warn('[CRUD Cleanup] Failed:', err);
+    });
 
     // Clean up any leftover data with invalid UUIDs from before the fix
     cleanupInvalidUUIDs().catch(err => {
@@ -30,25 +35,19 @@ export default function RootLayout() {
     });
 
     // Defer PowerSync connection to much later (after UI is fully stable)
-    // This prevents network errors from blocking the initial render
     const connectionTimer = setTimeout(() => {
-      // Don't await — fire and forget
-      // PowerSync will handle retries and connection automatically
       Promise.resolve()
         .then(async () => {
           try {
             await powerSyncDb.connect(connector);
           } catch (error) {
-            // Non-blocking — PowerSync retries automatically
-            // App works fully offline until connection succeeds
             console.warn('[PowerSync] Connection attempt failed (app offline):', error);
           }
         })
         .catch((error) => {
-          // Catch any unhandled errors
           console.error('[PowerSync] Initialization error:', error);
         });
-    }, 500); // Wait 500ms after UI renders before trying to connect
+    }, 500);
 
     return () => {
       clearTimeout(connectionTimer);
