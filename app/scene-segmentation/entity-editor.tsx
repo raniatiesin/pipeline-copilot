@@ -433,7 +433,7 @@ export default function EntityEditorScreen() {
       }
     }
     stageCallbacks.markInReview('entity-editor');
-    router.back();
+    router.dismissAll();
   }, [state.subjectCategories, projectId]);
 
   // ----------------------------------------

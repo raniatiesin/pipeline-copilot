@@ -39,12 +39,12 @@ import {
   SceneMapperCard,
 } from '../../components/scene-segmentation/scene-mapper';
 import { ScreenLayout } from '../../components/ui/ScreenLayout';
-import { stageCallbacks } from '../../lib/stageCallbacks';
-import { updateProject } from '../../lib/database';
 import { DROP_ZONE_HEIGHT } from '../../constants/sceneMapper';
 import { colors, spacing, typography } from '../../constants/theme';
 import { useSceneSegmentation } from '../../hooks/useSceneSegmentation';
 import { useSplitGesture } from '../../hooks/useSplitGesture';
+import { updateProject } from '../../lib/database';
+import { stageCallbacks } from '../../lib/stageCallbacks';
 import type { CardLayoutRect } from '../../types/scene-mapper-gestures';
 
 // ============================================
@@ -300,8 +300,9 @@ export default function BeatButcherScreen() {
 
   // ── Navigation ──
 
-  const handleContinue = useCallback(async () => {
-    // Save scenes to DB so Entity Editor can read them on mount
+const handleContinue = useCallback(async () => {
+    console.log('[BeatButcher] handleContinue projectId:', projectId, 'scenes:', state.scenes.length);
+  // rest of the code...
     if (projectId) {
       try {
         await updateProject(projectId, {
@@ -312,7 +313,7 @@ export default function BeatButcherScreen() {
       }
     }
     stageCallbacks.markInReview('beat-butcher');
-    router.back();
+    router.dismissAll();
   }, [projectId, state.scenes]);
 
   const handleBack = useCallback(() => {

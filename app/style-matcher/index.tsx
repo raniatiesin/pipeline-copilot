@@ -118,7 +118,7 @@ function StyleSelectorContent() {
       );
       return;
     }
-    router.back();
+    router.dismissAll();
   }, [confirmSelection, router]);
 
   const toggleFilters = useCallback(() => {

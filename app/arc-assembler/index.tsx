@@ -185,7 +185,7 @@ function ArcAssemblerContent() {
 
   const handleContinue = useCallback(async () => {
     await confirmAndSave();
-    router.back();
+    router.dismissAll();
   }, [confirmAndSave, router]);
 
   const handleBack = useCallback(() => {
