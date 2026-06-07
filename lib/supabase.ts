@@ -43,18 +43,36 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
  * Returns the current Supabase access token, or null if no session.
  * Called by the PowerSync connector before each sync cycle.
  * Returns null gracefully if network is unavailable.
+ * 
+ * Falls back to null if:
+ * - Network is offline
+ * - Session doesn't exist
+ * - getSession() throws any error
  */
 export async function getSupabaseToken(): Promise<string | null> {
   try {
+    // This call may fail if network is unavailable
+    // We catch all errors and return null to allow offline operation
     const { data, error } = await supabase.auth.getSession();
+    
+    // If there was an error, log and return null
     if (error) {
-      console.warn('[Supabase] getSession error:', error.message);
+      console.debug('[Supabase] getSession error:', error.message);
       return null;
     }
-    return data.session?.access_token ?? null;
+    
+    // Return token if session exists, otherwise null
+    const token = data?.session?.access_token;
+    if (!token) {
+      console.debug('[Supabase] No active session token available');
+      return null;
+    }
+    
+    return token;
   } catch (error) {
-    // Network error or other failure — return null gracefully
-    console.warn('[Supabase] getSession failed (network unavailable?):', error);
+    // Network error, timeout, or any other failure
+    // Return null gracefully — app continues in offline mode
+    console.debug('[Supabase] getSession failed:', error instanceof Error ? error.message : String(error));
     return null;
   }
 }

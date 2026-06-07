@@ -16,7 +16,7 @@
 
 import type { AbstractPowerSyncDatabase, PowerSyncBackendConnector } from '@powersync/react-native';
 import { PowerSyncDatabase, Schema, Table, column } from '@powersync/react-native';
-import { supabase, getSupabaseToken } from './supabase';
+import { getSupabaseToken, supabase } from './supabase';
 
 // ============================================
 // SCHEMA

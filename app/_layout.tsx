@@ -14,42 +14,38 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors } from '../constants/theme';
 import { connector, powerSyncDb } from '../lib/powersync';
-import { supabase } from '../lib/supabase';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   useEffect(() => {
-    // Hide splash immediately after first render — don't wait for network
-    const hideSplash = () => {
-      SplashScreen.hideAsync().catch(() => {});
-    };
+    // Hide splash immediately — UI must render regardless of network state
+    // Don't wait for any network initialization
+    SplashScreen.hideAsync().catch(() => {});
 
-    // Schedule splash hide for immediate execution
-    const splashTimer = setTimeout(hideSplash, 50);
-
-    // Defer initialization to after first render — don't block UI rendering
-    // Use Promise chain instead of setImmediate to ensure proper error handling
-    const initPromise = Promise.resolve().then(async () => {
-      try {
-        await supabase.auth.signInAnonymously();
-      } catch (error) {
-        // Non-blocking — app works offline without auth
-        console.warn('[Auth] Anonymous sign-in failed (app offline):', error);
-      }
-      try {
-        await powerSyncDb.connect(connector);
-      } catch (error) {
-        // Non-blocking — PowerSync retries automatically
-        console.warn('[PowerSync] Connection failed (app offline):', error);
-      }
-    }).catch((error) => {
-      // Catch any unhandled errors from the promise chain
-      console.error('[Init] Unhandled error during initialization:', error);
-    });
+    // Defer PowerSync connection to much later (after UI is fully stable)
+    // This prevents network errors from blocking the initial render
+    const connectionTimer = setTimeout(() => {
+      // Don't await — fire and forget
+      // PowerSync will handle retries and connection automatically
+      Promise.resolve()
+        .then(async () => {
+          try {
+            await powerSyncDb.connect(connector);
+          } catch (error) {
+            // Non-blocking — PowerSync retries automatically
+            // App works fully offline until connection succeeds
+            console.warn('[PowerSync] Connection attempt failed (app offline):', error);
+          }
+        })
+        .catch((error) => {
+          // Catch any unhandled errors
+          console.error('[PowerSync] Initialization error:', error);
+        });
+    }, 500); // Wait 500ms after UI renders before trying to connect
 
     return () => {
-      clearTimeout(splashTimer);
+      clearTimeout(connectionTimer);
     };
   }, []);
 

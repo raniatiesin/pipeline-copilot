@@ -18,14 +18,20 @@ export type SyncStatusResult = 'online' | 'offline';
  * `'offline'` otherwise.
  * 
  * Wrapped in try/catch to handle cases where PowerSyncContext
- * may not be initialized yet on first render.
+ * may not be initialized yet on first render or if context is destroyed.
  */
 export function useSyncStatus(): SyncStatusResult {
   try {
     const status = useStatus();
+    // Handle both undefined and falsy values
+    if (!status) {
+      return 'offline';
+    }
     return status.connected ? 'online' : 'offline';
-  } catch {
-    // PowerSyncContext not ready yet or not in scope — default to offline
+  } catch (error) {
+    // PowerSyncContext not ready, destroyed, or error accessing status
+    // Always safe to default to offline — app works fully offline anyway
+    console.debug('[useSyncStatus] Error reading status:', error);
     return 'offline';
   }
 }
