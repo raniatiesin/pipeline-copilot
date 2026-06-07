@@ -74,7 +74,7 @@ function isModuleUnlocked(
   if (!moduleId) return true;
   const idx = MODULE_ORDER.indexOf(moduleId as typeof MODULE_ORDER[number]);
   if (idx < 0) return true;   // not a stage card → always unlocked
-  if (idx === 0) return true;  // first stage → always unlocked
+  if (idx <= 1) return true;  // style-selector + beat-butcher always unlocked at project creation
 
   const prevId = MODULE_ORDER[idx - 1];
   const prev = Object.values(items).find(i => i.moduleId === prevId);
@@ -349,6 +349,29 @@ export function KanbanProvider({
   }, [projectId]);
 
   /**
+   * Mark a stage card IN_PROGRESS by moduleId.
+   * Sets progress → 10 only when currently 0 (UP_NEXT state).
+   * Calling this on an already-started card is a no-op.
+   */
+  const markInProgress = useCallback(async (moduleId: string) => {
+    if (!projectId) return;
+    const rows = rawRowsRef.current;
+    if (rows.length === 0) return;
+
+    const statuses = parseCardStatuses(rows[0].card_statuses);
+    if ((statuses[moduleId]?.progress ?? 0) > 0) return; // already started
+
+    const next: CardStatuses = {
+      ...statuses,
+      [moduleId]: {
+        ...(statuses[moduleId] ?? DEFAULT_CARD_STATUS),
+        progress: 10,
+      },
+    };
+    await dbUpdateProject(projectId, { card_statuses: JSON.stringify(next) });
+  }, [projectId]);
+
+  /**
    * Mark a stage card DONE by moduleId (progress=100 + isApproved=true).
    */
   const markDone = useCallback(async (moduleId: string) => {
@@ -432,6 +455,7 @@ export function KanbanProvider({
       setPageIndex,
       createProject,
       markInReview,
+      markInProgress,
       markDone,
       flagOutdated,
       clearOutdated,
@@ -448,6 +472,7 @@ export function KanbanProvider({
       setPageIndex,
       createProject,
       markInReview,
+      markInProgress,
       markDone,
       flagOutdated,
       clearOutdated,

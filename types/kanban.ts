@@ -207,6 +207,12 @@ export interface KanbanContextValue {
    */
   markInReview: (moduleId: string) => void;
   /**
+   * Mark a stage card IN_PROGRESS by moduleId.
+   * Sets progress → 10 (only if currently 0, i.e. UP_NEXT).
+   * Called on work screen mount to transition UP_NEXT → IN_PROGRESS.
+   */
+  markInProgress: (moduleId: string) => void;
+  /**
    * Mark a stage card DONE by moduleId.
    * Sets progress → 100 + isApproved → true.
    * Triggered by the "Mark as Done" button visible only on IN_REVIEW cards.

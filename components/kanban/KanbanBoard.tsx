@@ -55,8 +55,8 @@ export function KanbanBoard({
   const { width } = useWindowDimensions();
   const kanban = useKanban();
 
-  // Full-width columns — no peek, no gap
-  const columnWidth = width;
+  // 85% columns with 15% peek of the next column
+  const columnWidth = Math.floor(width * 0.85);
   const snapInterval = columnWidth;
 
   // Get counts for all statuses
@@ -101,7 +101,9 @@ export function KanbanBoard({
     <View style={styles.container}>
       <ScrollView
         horizontal
-        pagingEnabled
+        pagingEnabled={false}
+        snapToInterval={snapInterval}
+        snapToAlignment="start"
         decelerationRate="fast"
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleScrollEnd}

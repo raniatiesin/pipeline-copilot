@@ -51,6 +51,11 @@ import type { CardLayoutRect } from '../../types/scene-mapper-gestures';
 // ============================================
 
 export default function BeatButcherScreen() {
+  // Mark this card IN_PROGRESS when screen first opens (UP_NEXT → IN_PROGRESS)
+  useEffect(() => {
+    stageCallbacks.markInProgress('beat-butcher');
+  }, []);
+
   const {
     state,
     splitSceneAt,

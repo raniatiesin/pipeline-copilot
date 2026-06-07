@@ -100,12 +100,13 @@ export function KanbanColumn({
   const cardWidth = columnWidth - kanbanLayout.columnPaddingH * 2;
 
   const renderCard = (item: KanbanItem) => (
-    <KanbanCard
-      key={item.id}
-      item={item}
-      onPress={onCardPress}
-      cardWidth={cardWidth}
-    />
+    <View key={item.id} style={styles.cardWrapper}>
+      <KanbanCard
+        item={item}
+        onPress={onCardPress}
+        cardWidth={cardWidth - spacing.sm * 2}
+      />
+    </View>
   );
 
   // AddProjectButton shown only in the To Do column when callback provided
@@ -207,6 +208,9 @@ const styles = StyleSheet.create({
   cardsGrid: {
     gap: spacing.sm,
     width: '100%',
+  },
+  cardWrapper: {
+    marginHorizontal: spacing.sm,
   },
   emptyState: {
     flex: 1,

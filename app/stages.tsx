@@ -104,16 +104,18 @@ interface StagesContentProps {
 
 function StagesContent({ script, title, subtitle, projectId }: StagesContentProps) {
   const router = useRouter();
-  const { markInReview, getItemsByStatus } = useKanban();
+  const { markInReview, markInProgress, getItemsByStatus } = useKanban();
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
-  // ── Register markInReview callback for work screens ──────────────
+  // ── Register stage callbacks for work screens ─────────────────────
   useEffect(() => {
     stageCallbacks.setMarkInReview(markInReview);
+    stageCallbacks.setMarkInProgress(markInProgress);
     return () => {
       stageCallbacks.setMarkInReview(null);
+      stageCallbacks.setMarkInProgress(null);
     };
-  }, [markInReview]);
+  }, [markInReview, markInProgress]);
 
   // ── Card navigation ──────────────────────────────────────────────
 

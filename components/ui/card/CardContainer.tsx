@@ -41,6 +41,8 @@ export interface CardContainerProps extends CardAnimationConfig {
   borderColor?: string;
   /** Called on tap */
   onPress?: () => void;
+  /** Called on long press */
+  onLongPress?: () => void;
   /** Additional styles */
   style?: StyleProp<ViewStyle>;
   /** Accessibility label */
@@ -96,6 +98,7 @@ export const CardContainer = memo(function CardContainer({
   backgroundColor,
   borderColor,
   onPress,
+  onLongPress,
   style,
   disabled = false,
   pressScale,
@@ -118,6 +121,7 @@ export const CardContainer = memo(function CardContainer({
   return (
     <Pressable
       onPress={handlePress}
+      onLongPress={onLongPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled}

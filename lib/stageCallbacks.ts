@@ -18,6 +18,7 @@
 // ============================================
 
 let markInReviewCallback: ((moduleId: string) => void) | null = null;
+let markInProgressCallback: ((moduleId: string) => void) | null = null;
 
 // ============================================
 // PUBLIC API
@@ -39,5 +40,21 @@ export const stageCallbacks = {
    */
   markInReview(moduleId: string): void {
     markInReviewCallback?.(moduleId);
+  },
+
+  /**
+   * Called by StagesContent on mount. Pass null to unregister on unmount.
+   */
+  setMarkInProgress(fn: ((moduleId: string) => void) | null): void {
+    markInProgressCallback = fn;
+  },
+
+  /**
+   * Called by work screens on mount (useEffect).
+   * Transitions the card from UP_NEXT → IN_PROGRESS (progress 0 → 10).
+   * No-op if stages.tsx is not mounted or card already has progress > 0.
+   */
+  markInProgress(moduleId: string): void {
+    markInProgressCallback?.(moduleId);
   },
 };

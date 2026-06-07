@@ -20,7 +20,7 @@
  */
 
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -39,6 +39,7 @@ import { ScreenLayout } from '@/components/ui/ScreenLayout';
 import { getLineThickness } from '@/constants/line';
 import { colors, shadows, spacing, typography } from '@/constants/theme';
 import { ArcAssemblerProvider, useArcAssembler } from '@/hooks/useArcAssembler';
+import { stageCallbacks } from '@/lib/stageCallbacks';
 import type { ArcAssemblerMode } from '@/types/arc-assembler';
 
 // ============================================
@@ -128,6 +129,11 @@ function ArcAssemblerContent() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
+
+  // Mark this card IN_PROGRESS when screen first opens (UP_NEXT → IN_PROGRESS)
+  useEffect(() => {
+    stageCallbacks.markInProgress('arc-assembler');
+  }, []);
 
   const {
     mode,

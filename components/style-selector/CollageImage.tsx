@@ -81,13 +81,13 @@ export const CollageImage = memo(CollageImageBase);
 
 const styles = StyleSheet.create({
   card: {
-    width: '47%',
-    aspectRatio: 0.7,
+    flex: 1,
+    aspectRatio: 16 / 9,
     borderRadius: borderRadius.md,
     borderWidth: getLineThickness('base'),
     borderColor: colors.border,
     overflow: 'hidden',
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.primary,
   },
   cardSelected: {
     borderWidth: 3,

@@ -19,6 +19,7 @@ import { Feather } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, {
   useCallback,
+  useEffect,
   useState,
 } from 'react';
 import {
@@ -41,6 +42,7 @@ import { styleMatcherData } from '@/constants/styleMatcherData';
 import { getLineThickness } from '@/constants/line';
 import { borderRadius, colors, spacing, typography } from '@/constants/theme';
 import { StyleSelectorProvider, useStyleSelector } from '@/hooks/useStyleSelector';
+import { stageCallbacks } from '@/lib/stageCallbacks';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -90,9 +92,15 @@ function StyleSelectorContent() {
   } = useStyleSelector();
 
   const [filterExpanded, setFilterExpanded] = useState(false);
+  const [numColumns, setNumColumns] = useState<1 | 2 | 3>(2);
 
   const selectedId = selectedCollage?.collageId ?? null;
   const activeFilterCount = Object.values(filters).filter(v => v !== '').length;
+
+  // Mark this card IN_PROGRESS when screen first opens (UP_NEXT → IN_PROGRESS)
+  useEffect(() => {
+    stageCallbacks.markInProgress('style-selector');
+  }, []);
 
   // ── Handlers ────────────────────────────────────────────────────
 
@@ -154,13 +162,32 @@ function StyleSelectorContent() {
 
       <View style={styles.container}>
 
-        {/* GALLERY — virtualized 2-column grid */}
+        {/* COLUMN TOGGLE — 1 / 2 / 3 columns */}
+        <View style={styles.toggleRow}>
+          {([1, 2, 3] as const).map((n) => (
+            <TouchableOpacity
+              key={n}
+              onPress={() => setNumColumns(n)}
+              style={[styles.toggleBtn, numColumns === n && styles.toggleBtnActive]}
+              activeOpacity={0.7}
+            >
+              <Feather
+                name={n === 1 ? 'square' : n === 2 ? 'grid' : 'columns'}
+                size={16}
+                color={numColumns === n ? colors.primary : colors.text.secondary}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* GALLERY — virtualized grid, column count controlled by toggle */}
         <FlatList
+          key={String(numColumns)}
           data={filteredIds}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
-          numColumns={2}
-          columnWrapperStyle={styles.columnWrapper}
+          numColumns={numColumns}
+          columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
           ItemSeparatorComponent={ItemSeparator}
           contentContainerStyle={[
             styles.galleryContent,
@@ -292,6 +319,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+
+  // COLUMN TOGGLE
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    backgroundColor: colors.background,
+  },
+  toggleBtn: {
+    padding: spacing.sm,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.surface,
+  },
+  toggleBtnActive: {
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.primary,
   },
 
   // GALLERY

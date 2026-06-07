@@ -287,6 +287,13 @@ export async function createProject(data: {
 }
 
 /**
+ * Deletes a pipeline row by id.
+ */
+export async function deleteProject(id: string): Promise<void> {
+  await powerSyncDb.execute('DELETE FROM pipelines WHERE id = ?', [id]);
+}
+
+/**
  * Updates fields on an existing pipeline row.
  * Keys must be snake_case DB column names.
  */

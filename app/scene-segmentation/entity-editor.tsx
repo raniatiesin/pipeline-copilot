@@ -20,7 +20,7 @@
  */
 
 import { router } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -366,6 +366,11 @@ function EmptyProfiles() {
 export default function EntityEditorScreen() {
   const { height: windowHeight } = useWindowDimensions();
   const stripHeight = Math.max(240, Math.round(windowHeight * 0.42));
+
+  // Mark this card IN_PROGRESS when screen first opens (UP_NEXT → IN_PROGRESS)
+  useEffect(() => {
+    stageCallbacks.markInProgress('entity-editor');
+  }, []);
 
   const { state } = useSceneSegmentation();
   const editor = useEntityEditor();
