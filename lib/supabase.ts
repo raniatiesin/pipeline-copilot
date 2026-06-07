@@ -28,7 +28,7 @@ const wsTransport = isNodeSSR ? require('ws') : undefined;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: true,
+    autoRefreshToken: false, // Disable auto-refresh to avoid network calls on init
     persistSession: false,
     detectSessionInUrl: false,
   },
@@ -42,8 +42,19 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 /**
  * Returns the current Supabase access token, or null if no session.
  * Called by the PowerSync connector before each sync cycle.
+ * Returns null gracefully if network is unavailable.
  */
 export async function getSupabaseToken(): Promise<string | null> {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? null;
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) {
+      console.warn('[Supabase] getSession error:', error.message);
+      return null;
+    }
+    return data.session?.access_token ?? null;
+  } catch (error) {
+    // Network error or other failure — return null gracefully
+    console.warn('[Supabase] getSession failed (network unavailable?):', error);
+    return null;
+  }
 }

@@ -47,51 +47,65 @@ export const AppSchema = new Schema({ pipelines });
 
 class SupabaseConnector implements PowerSyncBackendConnector {
   async fetchCredentials() {
-    const token = await getSupabaseToken();
-    return {
-      endpoint: process.env.EXPO_PUBLIC_POWERSYNC_URL ?? '',
-      token: token ?? '',
-    };
+    try {
+      const token = await getSupabaseToken();
+      return {
+        endpoint: process.env.EXPO_PUBLIC_POWERSYNC_URL ?? '',
+        token: token ?? '',
+      };
+    } catch (error) {
+      // Network error during token fetch — continue offline with empty token
+      console.warn('[PowerSync] fetchCredentials failed:', error);
+      return {
+        endpoint: process.env.EXPO_PUBLIC_POWERSYNC_URL ?? '',
+        token: '',
+      };
+    }
   }
 
   async uploadData(database: AbstractPowerSyncDatabase): Promise<void> {
-    const transaction = await database.getNextCrudTransaction();
-    if (!transaction) return;
-
     try {
-      for (const op of transaction.crud) {
-        if (op.table !== 'pipelines') continue;
+      const transaction = await database.getNextCrudTransaction();
+      if (!transaction) return;
 
-        switch (op.op) {
-          case 'PUT': {
-            const { error } = await supabase
-              .from('pipelines')
-              .upsert({ id: op.id, ...op.opData });
-            if (error) throw error;
-            break;
-          }
-          case 'PATCH': {
-            const { error } = await supabase
-              .from('pipelines')
-              .update(op.opData ?? {})
-              .eq('id', op.id);
-            if (error) throw error;
-            break;
-          }
-          case 'DELETE': {
-            const { error } = await supabase
-              .from('pipelines')
-              .delete()
-              .eq('id', op.id);
-            if (error) throw error;
-            break;
+      try {
+        for (const op of transaction.crud) {
+          if (op.table !== 'pipelines') continue;
+
+          switch (op.op) {
+            case 'PUT': {
+              const { error } = await supabase
+                .from('pipelines')
+                .upsert({ id: op.id, ...op.opData });
+              if (error) throw error;
+              break;
+            }
+            case 'PATCH': {
+              const { error } = await supabase
+                .from('pipelines')
+                .update(op.opData ?? {})
+                .eq('id', op.id);
+              if (error) throw error;
+              break;
+            }
+            case 'DELETE': {
+              const { error } = await supabase
+                .from('pipelines')
+                .delete()
+                .eq('id', op.id);
+              if (error) throw error;
+              break;
+            }
           }
         }
+        await transaction.complete();
+      } catch (error) {
+        console.error('[PowerSync] uploadData batch failed:', error);
+        // Don't throw — let PowerSync handle retry logic
       }
-      await transaction.complete();
     } catch (error) {
-      console.error('[PowerSync] uploadData failed:', error);
-      throw error;
+      console.error('[PowerSync] uploadData transaction failed:', error);
+      // Non-blocking — will retry on next sync
     }
   }
 }

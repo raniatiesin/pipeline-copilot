@@ -20,27 +20,37 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   useEffect(() => {
+    // Hide splash immediately after first render — don't wait for network
+    const hideSplash = () => {
+      SplashScreen.hideAsync().catch(() => {});
+    };
+
+    // Schedule splash hide for immediate execution
+    const splashTimer = setTimeout(hideSplash, 50);
+
     // Defer initialization to after first render — don't block UI rendering
-    setImmediate(async () => {
+    // Use Promise chain instead of setImmediate to ensure proper error handling
+    const initPromise = Promise.resolve().then(async () => {
       try {
         await supabase.auth.signInAnonymously();
-      } catch {
-        // Non-blocking — app works offline
+      } catch (error) {
+        // Non-blocking — app works offline without auth
+        console.warn('[Auth] Anonymous sign-in failed (app offline):', error);
       }
       try {
         await powerSyncDb.connect(connector);
-      } catch {
-        // Non-blocking — retries automatically
+      } catch (error) {
+        // Non-blocking — PowerSync retries automatically
+        console.warn('[PowerSync] Connection failed (app offline):', error);
       }
+    }).catch((error) => {
+      // Catch any unhandled errors from the promise chain
+      console.error('[Init] Unhandled error during initialization:', error);
     });
 
-    // Hide splash immediately after first render
-    // Short timeout ensures UI renders before splash hides
-    const splashTimer = setTimeout(() => {
-      SplashScreen.hideAsync().catch(() => {});
-    }, 50);
-
-    return () => clearTimeout(splashTimer);
+    return () => {
+      clearTimeout(splashTimer);
+    };
   }, []);
 
   return (
