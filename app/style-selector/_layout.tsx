@@ -1,14 +1,14 @@
 /**
  * ============================================
- * STYLE MATCHER LAYOUT
+ * STYLE SELECTOR LAYOUT
  * ============================================
  *
- * Route group layout for the style-matcher screens.
+ * Route group layout for the style-selector screens.
  * Provides Stack navigation config only — provider scope
  * is handled per-screen (StyleSelectorProvider lives in
  * index.tsx and receives projectId from search params).
  *
- * @module app/style-matcher/_layout
+ * @module app/style-selector/_layout
  */
 
 import { Stack } from 'expo-router';
@@ -16,7 +16,7 @@ import React from 'react';
 
 import { colors } from '../../constants/theme';
 
-export default function StyleMatcherLayout() {
+export default function StyleSelectorLayout() {
   return (
     <Stack
       screenOptions={{

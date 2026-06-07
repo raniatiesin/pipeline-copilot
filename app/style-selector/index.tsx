@@ -9,7 +9,7 @@
  * in real time. Tapping a collage selects it (one at a time).
  * Continue persists the selection + marks the card In Review.
  *
- * @module app/style-matcher/index
+ * @module app/style-selector/index
  */
 
 import { Feather } from '@expo/vector-icons';

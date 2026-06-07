@@ -21,9 +21,9 @@
 export type AppRoute =
   | '/'                                    // Welcome / splash
   | '/project'                             // Project hub
-  | '/style-matcher'                       // Style matcher kanban
-  | '/style-matcher/[order]'               // Style questionnaire step
-  | '/style-matcher/results'               // Style summary
+  | '/style-selector'                      // Style selector kanban
+  | '/style-selector/[order]'              // Style questionnaire step
+  | '/style-selector/results'              // Style summary
   | '/scene-segmentation'                  // Scene segmentation kanban
   | '/scene-segmentation/input'            // Script paste input
   | '/scene-segmentation/scene-mapper'     // Stage 1: scene mapping

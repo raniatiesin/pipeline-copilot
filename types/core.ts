@@ -26,7 +26,9 @@ export type ModuleStatus = 'not-started' | 'in-progress' | 'completed';
  */
 export type ModuleId =
   | 'style-selector'
-  | 'scene-segmentor'
+  | 'beat-butcher'
+  | 'entity-editor'
+  | 'arc-assembler'
   | 'voice-cloner'       // Future module
   | 'script-generator'   // Future module
   | 'video-renderer';    // Future module

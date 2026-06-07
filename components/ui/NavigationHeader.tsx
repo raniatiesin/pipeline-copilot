@@ -18,7 +18,7 @@
  * <NavigationHeader
  *   tabs={[
  *     { label: 'Project #12', route: '/project' },
- *     { label: 'Style Selector', route: '/style-matcher/1' },
+ *     { label: 'Style Selector', route: '/style-selector/1' },
  *     { label: 'Tag Selector' }, // Current (no route)
  *   ]}
  *   title="What's the primary vibe?"

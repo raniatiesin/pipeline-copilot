@@ -116,7 +116,7 @@ function StagesContent({ script, title, subtitle, projectId }: StagesContentProp
   const handleItemPress = useCallback((item: KanbanItem) => {
     if (item.moduleId === 'style-selector') {
       router.push({
-        pathname: '/style-matcher/' as any,
+        pathname: '/style-selector/' as any,
         params: { projectId },
       });
     } else if (item.moduleId === 'beat-butcher') {
