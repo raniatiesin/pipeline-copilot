@@ -352,30 +352,61 @@ export async function cleanupInvalidUUIDs(): Promise<number> {
  * Clear stuck transactions from PowerSync's internal CRUD upload queue.
  * PowerSync stores pending uploads in the internal `ps_crud` table.
  * If a bad UUID is stuck there, it will keep retrying forever.
- * This deletes the stuck transaction directly.
+ * This deletes stuck transactions with malformed UUIDs.
  *
+ * Uses pattern matching to catch any malformed UUID, not just specific values.
  * ONE-TIME USE: Run once on startup, then remove this function after first successful launch.
  * Only needed during migration from old bad UUID format.
  */
 export async function clearStuckCrudTransactions(): Promise<number> {
   try {
-    console.log('[CRUD Cleanup] Clearing stuck transactions with bad UUIDs from PowerSync queue...');
+    console.log('[CRUD Cleanup] Clearing stuck transactions with malformed UUIDs from PowerSync queue...');
     
-    // Delete from PowerSync's internal CRUD queue any row containing the bad UUID pattern
-    // The `data` column contains JSON with the row data
-    const result = await powerSyncDb.execute(
-      'DELETE FROM ps_crud WHERE data LIKE ?',
-      ['%mq3gr8kf%'],
-    );
+    let totalRemoved = 0;
 
-    const rowsAffected = result.rowsAffected ?? 0;
-    if (rowsAffected > 0) {
-      console.log(`[CRUD Cleanup] ✅ Removed ${rowsAffected} stuck CRUD transaction(s) with bad UUID`);
-    } else {
-      console.log('[CRUD Cleanup] ✅ No stuck transactions found');
+    // First: Delete CRUD entries where the ID is nested in the JSON data column
+    // Target: any id field that doesn't match RFC 4122 UUID format
+    try {
+      const result1 = await powerSyncDb.execute(
+        `DELETE FROM ps_crud WHERE
+         json_extract(data, '$.id') IS NOT NULL AND
+         json_extract(data, '$.id') NOT LIKE '________-____-4___-____-____________'`,
+        [],
+      );
+      const removed1 = result1.rowsAffected ?? 0;
+      totalRemoved += removed1;
+      if (removed1 > 0) {
+        console.log(`[CRUD Cleanup] Removed ${removed1} stuck transaction(s) from data.id column`);
+      }
+    } catch (error) {
+      console.warn('[CRUD Cleanup] Could not clean data.id column:', error instanceof Error ? error.message : 'unknown');
     }
 
-    return rowsAffected;
+    // Second: Delete CRUD entries where the ID is at the top level
+    // Target: any top-level id that doesn't match RFC 4122 UUID format
+    try {
+      const result2 = await powerSyncDb.execute(
+        `DELETE FROM ps_crud WHERE
+         id IS NOT NULL AND
+         id NOT LIKE '________-____-4___-____-____________'`,
+        [],
+      );
+      const removed2 = result2.rowsAffected ?? 0;
+      totalRemoved += removed2;
+      if (removed2 > 0) {
+        console.log(`[CRUD Cleanup] Removed ${removed2} stuck transaction(s) from top-level id column`);
+      }
+    } catch (error) {
+      console.warn('[CRUD Cleanup] Could not clean top-level id column:', error instanceof Error ? error.message : 'unknown');
+    }
+
+    if (totalRemoved > 0) {
+      console.log(`[CRUD Cleanup] ✅ Removed ${totalRemoved} total stuck CRUD transaction(s) with malformed UUIDs`);
+    } else {
+      console.log('[CRUD Cleanup] ✅ No malformed UUID transactions found in CRUD queue');
+    }
+
+    return totalRemoved;
   } catch (error) {
     console.warn('[CRUD Cleanup] Could not clear CRUD queue (may not exist yet):', error instanceof Error ? error.message : 'unknown');
     return 0;
