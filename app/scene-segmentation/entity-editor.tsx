@@ -20,7 +20,7 @@
  */
 
 import { router } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -374,6 +374,11 @@ export default function EntityEditorScreen() {
     router.back();
   }, []);
 
+  // Mark card IN_PROGRESS when screen mounts
+  useEffect(() => {
+    stageCallbacks.markInProgress('entity-editor');
+  }, []);
+
   const handleContinue = useCallback(() => {
     if (state.subjectCategories.length === 0) {
       Alert.alert(
@@ -384,7 +389,7 @@ export default function EntityEditorScreen() {
       return;
     }
     stageCallbacks.markInReview('entity-editor');
-    router.back();
+    router.dismissAll();
   }, [state.subjectCategories.length]);
 
   // ----------------------------------------

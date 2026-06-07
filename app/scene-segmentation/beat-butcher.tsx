@@ -292,9 +292,14 @@ export default function BeatButcherScreen() {
 
   // ── Navigation ──
 
+  // Mark card IN_PROGRESS when screen mounts
+  useEffect(() => {
+    stageCallbacks.markInProgress('beat-butcher');
+  }, []);
+
   const handleContinue = useCallback(() => {
     stageCallbacks.markInReview('beat-butcher');
-    router.back();
+    router.dismissAll();
   }, []);
 
   const handleBack = useCallback(() => {

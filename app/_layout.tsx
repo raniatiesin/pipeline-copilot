@@ -13,35 +13,21 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors } from '../constants/theme';
-import { cleanupInvalidUUIDs, clearStuckCrudTransactions } from '../lib/database';
 import { connector, powerSyncDb } from '../lib/powersync';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   useEffect(() => {
-    // Hide splash immediately — UI must render regardless of network state
     SplashScreen.hideAsync().catch(() => {});
 
-    // ONE-TIME: Clear stuck CRUD transactions from PowerSync's internal queue
-    // (only needed during migration from old bad UUID format)
-    clearStuckCrudTransactions().catch(err => {
-      console.warn('[CRUD Cleanup] Failed:', err);
-    });
-
-    // Clean up any leftover data with invalid UUIDs from before the fix
-    cleanupInvalidUUIDs().catch(err => {
-      console.warn('[Cleanup] Failed to clean invalid UUIDs:', err);
-    });
-
-    // Defer PowerSync connection to much later (after UI is fully stable)
     const connectionTimer = setTimeout(() => {
       Promise.resolve()
         .then(async () => {
           try {
             await powerSyncDb.connect(connector);
           } catch (error) {
-            console.warn('[PowerSync] Connection attempt failed (app offline):', error);
+            console.error('[PowerSync] Connection attempt failed:', error);
           }
         })
         .catch((error) => {

@@ -3,24 +3,17 @@
  * ARC ASSEMBLER SCREEN
  * ============================================
  *
- * The final pipeline synthesis card. Brings together:
- *   - Scenes from Beat Butcher (beat_butcher_output)
- *   - Subject profiles from Entity Editor (entity_editor_output)
- *   - Style collage + tag tally from Style Selector (style_selection)
- *
- * Two modes on the same screen, toggled by horizontal page swipe:
+ * Two modes toggled by horizontal page swipe:
  *   Scene Mode  (left)  — write a visual brief per scene
  *   Subject Mode (right) — write a visual brief per subject
  *
- * All state is managed by ArcAssemblerProvider. Briefs are written
- * back to arc_assembler_output via debounced updateProject calls.
- * Continue flushes immediately and marks the card In Review.
+ * Marks the card IN_PROGRESS on mount, IN_REVIEW on Continue.
  *
  * @module app/arc-assembler/index
  */
 
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -37,8 +30,9 @@ import { SceneModePage } from '@/components/arc-assembler/SceneModePage';
 import { SubjectModePage } from '@/components/arc-assembler/SubjectModePage';
 import { ScreenLayout } from '@/components/ui/ScreenLayout';
 import { getLineThickness } from '@/constants/line';
-import { colors, shadows, spacing, typography } from '@/constants/theme';
+import { colors, spacing, typography } from '@/constants/theme';
 import { ArcAssemblerProvider, useArcAssembler } from '@/hooks/useArcAssembler';
+import { stageCallbacks } from '@/lib/stageCallbacks';
 import type { ArcAssemblerMode } from '@/types/arc-assembler';
 
 // ============================================
@@ -121,7 +115,7 @@ const indicatorStyles = StyleSheet.create({
 });
 
 // ============================================
-// INNER CONTENT (needs ArcAssemblerProvider context)
+// INNER CONTENT
 // ============================================
 
 function ArcAssemblerContent() {
@@ -136,12 +130,13 @@ function ArcAssemblerContent() {
     confirmAndSave,
   } = useArcAssembler();
 
+  // Mark card IN_PROGRESS when screen mounts
+  useEffect(() => {
+    stageCallbacks.markInProgress('arc-assembler');
+  }, []);
+
   // ── Mode switching ────────────────────────────────────────────────
 
-  /**
-   * Called by the ModeIndicator tabs.
-   * Updates mode state AND scrolls the page view.
-   */
   const handleModeSelect = useCallback((newMode: ArcAssemblerMode) => {
     setMode(newMode);
     scrollRef.current?.scrollTo({
@@ -150,10 +145,6 @@ function ArcAssemblerContent() {
     });
   }, [setMode, width]);
 
-  /**
-   * Called when the user completes a native swipe gesture.
-   * Updates mode state without scrolling (already on correct page).
-   */
   const handleScrollEnd = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const pageIndex = Math.round(
@@ -164,14 +155,7 @@ function ArcAssemblerContent() {
     [setMode, width],
   );
 
-  /**
-   * Called by SubjectBriefPopup "SUBJECT MODE" button.
-   * The hook already called navigateToSubject() and setMode('subject').
-   * We just need to scroll the view.
-   */
-  const handleNavigateToSubject = useCallback((categoryId: string) => {
-    // navigateToSubject is called inside the hook via the popup's onNavigateToSubject prop.
-    // Here we only need to scroll the page view to reveal Subject Mode.
+  const handleNavigateToSubject = useCallback((_categoryId: string) => {
     scrollRef.current?.scrollTo({ x: width, animated: true });
   }, [width]);
 
@@ -179,7 +163,8 @@ function ArcAssemblerContent() {
 
   const handleContinue = useCallback(async () => {
     await confirmAndSave();
-    router.back();
+    stageCallbacks.markInReview('arc-assembler');
+    router.dismissAll();
   }, [confirmAndSave, router]);
 
   const handleBack = useCallback(() => {
@@ -201,15 +186,12 @@ function ArcAssemblerContent() {
     >
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Mode indicator tabs */}
       <ModeIndicator mode={mode} onSelect={handleModeSelect} />
 
-      {/* Collage reference button — absolute overlay on the content area */}
       <View style={styles.collageButtonWrapper}>
         <CollageOverlay collageId={styleSelection?.collageId ?? null} />
       </View>
 
-      {/* Horizontal paged scroll — Scene Mode (left) + Subject Mode (right) */}
       <ScrollView
         ref={scrollRef}
         horizontal
@@ -221,12 +203,9 @@ function ArcAssemblerContent() {
         contentContainerStyle={{ width: width * 2 }}
         decelerationRate="fast"
       >
-        {/* Page 1 — Scene Mode */}
         <View style={[styles.page, { width }]}>
           <SceneModePage onNavigateToSubject={handleNavigateToSubject} />
         </View>
-
-        {/* Page 2 — Subject Mode */}
         <View style={[styles.page, { width }]}>
           <SubjectModePage />
         </View>
@@ -236,7 +215,7 @@ function ArcAssemblerContent() {
 }
 
 // ============================================
-// MAIN SCREEN (provider entry point)
+// MAIN SCREEN
 // ============================================
 
 export default function ArcAssemblerScreen() {
@@ -260,8 +239,6 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
   },
-
-  // Collage button positioned top-right, above the page content
   collageButtonWrapper: {
     position: 'absolute',
     top: spacing.sm,
