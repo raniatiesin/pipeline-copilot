@@ -9,19 +9,12 @@
  * in real time. Tapping a collage selects it (one at a time).
  * Continue persists the selection + marks the card In Review.
  *
- * Provider scope: StyleSelectorProvider is mounted here (not in
- * _layout) so it can receive projectId from search params.
- *
  * @module app/style-matcher/index
  */
 
 import { Feather } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import React, {
-  useCallback,
-  useEffect,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -44,20 +37,17 @@ import { borderRadius, colors, spacing, typography } from '@/constants/theme';
 import { StyleSelectorProvider, useStyleSelector } from '@/hooks/useStyleSelector';
 import { stageCallbacks } from '@/lib/stageCallbacks';
 
-// Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Gap between gallery cards
 const CARD_GAP = spacing.md;
-// Collapsed bottom sheet height (handle + title row)
 const SHEET_COLLAPSED_HEIGHT = 64;
 
 // ============================================
-// GALLERY ITEM (memoised wrapper avoids re-render on filter change)
+// GALLERY ITEM
 // ============================================
 
 interface GalleryItemProps {
@@ -75,7 +65,7 @@ const GalleryItem = React.memo(({ id, selectedId, onSelect }: GalleryItemProps) 
 ));
 
 // ============================================
-// INNER CONTENT (uses StyleSelectorContext)
+// INNER CONTENT
 // ============================================
 
 function StyleSelectorContent() {
@@ -92,17 +82,16 @@ function StyleSelectorContent() {
   } = useStyleSelector();
 
   const [filterExpanded, setFilterExpanded] = useState(false);
-  const [numColumns, setNumColumns] = useState<1 | 2 | 3>(2);
 
   const selectedId = selectedCollage?.collageId ?? null;
   const activeFilterCount = Object.values(filters).filter(v => v !== '').length;
 
-  // Mark this card IN_PROGRESS when screen first opens (UP_NEXT → IN_PROGRESS)
+  // Mark card IN_PROGRESS when screen mounts
   useEffect(() => {
     stageCallbacks.markInProgress('style-selector');
   }, []);
 
-  // ── Handlers ────────────────────────────────────────────────────
+  // ── Handlers ─────────────────────────────────────────────────────
 
   const handleBack = useCallback(() => {
     router.back();
@@ -118,6 +107,7 @@ function StyleSelectorContent() {
       );
       return;
     }
+    stageCallbacks.markInReview('style-selector');
     router.dismissAll();
   }, [confirmSelection, router]);
 
@@ -130,7 +120,7 @@ function StyleSelectorContent() {
     clearFilters();
   }, [clearFilters]);
 
-  // ── Gallery render helpers ───────────────────────────────────────
+  // ── Gallery render helpers ────────────────────────────────────────
 
   const renderItem = useCallback(
     ({ item }: { item: number }) => (
@@ -162,32 +152,13 @@ function StyleSelectorContent() {
 
       <View style={styles.container}>
 
-        {/* COLUMN TOGGLE — 1 / 2 / 3 columns */}
-        <View style={styles.toggleRow}>
-          {([1, 2, 3] as const).map((n) => (
-            <TouchableOpacity
-              key={n}
-              onPress={() => setNumColumns(n)}
-              style={[styles.toggleBtn, numColumns === n && styles.toggleBtnActive]}
-              activeOpacity={0.7}
-            >
-              <Feather
-                name={n === 1 ? 'square' : n === 2 ? 'grid' : 'columns'}
-                size={16}
-                color={numColumns === n ? colors.primary : colors.text.secondary}
-              />
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* GALLERY — virtualized grid, column count controlled by toggle */}
+        {/* GALLERY */}
         <FlatList
-          key={String(numColumns)}
           data={filteredIds}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
-          numColumns={numColumns}
-          columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
+          numColumns={2}
+          columnWrapperStyle={styles.columnWrapper}
           ItemSeparatorComponent={ItemSeparator}
           contentContainerStyle={[
             styles.galleryContent,
@@ -196,8 +167,8 @@ function StyleSelectorContent() {
           showsVerticalScrollIndicator={false}
           removeClippedSubviews
           initialNumToRender={12}
-          maxToRenderPerBatch={12}
-          windowSize={3}
+          maxToRenderPerBatch={16}
+          windowSize={5}
           ListEmptyComponent={
             isLoading ? null : (
               <View style={styles.emptyState}>
@@ -217,7 +188,6 @@ function StyleSelectorContent() {
             filterExpanded && { height: SCREEN_HEIGHT * 0.75 },
           ]}
         >
-          {/* Sheet handle + title row */}
           <TouchableOpacity
             style={styles.sheetHeader}
             onPress={toggleFilters}
@@ -250,7 +220,6 @@ function StyleSelectorContent() {
             </View>
           </TouchableOpacity>
 
-          {/* Filter question groups */}
           {filterExpanded && (
             <ScrollView
               style={styles.filtersScroll}
@@ -298,7 +267,7 @@ function StyleSelectorContent() {
 }
 
 // ============================================
-// MAIN SCREEN (mounts provider with projectId)
+// MAIN SCREEN
 // ============================================
 
 export default function StyleSelectorIndexScreen() {
@@ -319,28 +288,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-
-  // COLUMN TOGGLE
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
-    backgroundColor: colors.background,
-  },
-  toggleBtn: {
-    padding: spacing.sm,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderRadius: borderRadius.sm,
-    backgroundColor: colors.surface,
-  },
-  toggleBtnActive: {
-    backgroundColor: colors.surfaceElevated,
-    borderColor: colors.primary,
   },
 
   // GALLERY

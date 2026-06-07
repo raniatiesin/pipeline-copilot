@@ -38,3 +38,9 @@ externalPort = 80
 deploymentTarget = "static"
 build = ["bash", "-c", "node_modules/.bin/expo export --platform web"]
 publicDir = "dist"
+
+[userenv]
+
+[userenv.shared]
+EXPO_PUBLIC_SUPABASE_URL = "https://srjhrsfinmrxufncdxbd.supabase.co"
+EXPO_PUBLIC_POWERSYNC_URL = "https://6a210ddf0ef84ed6719ed1a2.powersync.journeyapps.com"

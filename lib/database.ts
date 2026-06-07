@@ -138,7 +138,7 @@ export function rowToProjectItem(row: PipelineRow): KanbanItem {
     description: row.post_name,
     moduleId: 'project',
     icon: 'film',
-    status: KANBAN_STATUS.IN_PROGRESS,  // overridden by deriveStatus
+    status: KANBAN_STATUS.IN_PROGRESS,
     order: new Date(row.created_at).getTime(),
     progress: computeProjectProgress(row.card_statuses),
     priority: 'high',
@@ -151,7 +151,6 @@ export function rowToProjectItem(row: PipelineRow): KanbanItem {
 /**
  * Maps a single pipeline row to 4 stage KanbanItems
  * (the cards shown in the Stages Kanban for that project).
- * Stage card id = moduleId (unique within a single project context).
  */
 export function rowToStageItems(row: PipelineRow): KanbanItem[] {
   let statuses: CardStatuses = {};
@@ -163,12 +162,12 @@ export function rowToStageItems(row: PipelineRow): KanbanItem[] {
     const s: StageCardStatus = { ...DEFAULT_STAGE_STATUS, ...(statuses[moduleId] ?? {}) };
     const cfg = STAGE_CONFIG[moduleId];
     return {
-      id: moduleId,  // id = moduleId in stage context
+      id: moduleId,
       title: cfg.title,
       description: cfg.description,
       icon: cfg.icon,
       moduleId,
-      status: KANBAN_STATUS.TODO,  // overridden by deriveStatus
+      status: KANBAN_STATUS.TODO,
       order: cfg.order,
       progress: s.progress,
       isApproved: s.isApproved,
@@ -205,7 +204,6 @@ export async function* watchProjects(): AsyncGenerator<PipelineRow[]> {
     'SELECT * FROM pipelines ORDER BY created_at DESC',
     [],
   )) {
-    // Extract rows from QueryResult — they're in .rows?._array
     const rows = (result.rows?._array as PipelineRow[]) ?? [];
     yield rows;
   }
@@ -220,7 +218,6 @@ export async function* watchProject(projectId: string): AsyncGenerator<PipelineR
     'SELECT * FROM pipelines WHERE id = ? LIMIT 1',
     [projectId],
   )) {
-    // Extract rows from QueryResult — they're in .rows?._array
     const rows = (result.rows?._array as PipelineRow[]) ?? [];
     yield rows;
   }
@@ -231,16 +228,12 @@ export async function* watchProject(projectId: string): AsyncGenerator<PipelineR
 // ============================================
 
 /**
- * Generates a valid UUID v4 format using the standard crypto API.
+ * Generates a valid UUID v4 using the native crypto API.
  */
 function generateUUID(): string {
-  // Use native crypto.randomUUID() for RFC 4122 compliant UUIDs
-  // Fallback to manual generation if crypto is unavailable
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
-
-  // Fallback for environments without crypto.randomUUID
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
@@ -312,119 +305,4 @@ export async function updateProject(
     `UPDATE pipelines SET ${setClauses}, updated_at = ? WHERE id = ?`,
     [...values, now, id],
   );
-}
-
-// ============================================
-// MAINTENANCE & MIGRATIONS
-// ============================================
-
-/**
- * Clean up rows with invalid UUID format.
- * Removes any rows where id doesn't match RFC 4122 UUID format.
- * Should be called on app startup.
- */
-export async function cleanupInvalidUUIDs(): Promise<number> {
-  try {
-    // UUID v4 pattern: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    
-    console.log('[Cleanup] Starting UUID validation scan...');
-    
-    // Use watch() to safely query rows (one-time read via for-await)
-    let deletedCount = 0;
-    let processedRows = 0;
-    
-    for await (const result of powerSyncDb.watch('SELECT id FROM pipelines')) {
-      const rows = (result.rows?._array as Array<{ id: string }>) ?? [];
-      console.log(`[Cleanup] Found ${rows.length} rows to check`);
-      processedRows = rows.length;
-      
-      for (const row of rows) {
-        if (!uuidRegex.test(row.id)) {
-          console.warn(`[Cleanup] INVALID UUID detected: "${row.id}" — deleting`);
-          await powerSyncDb.execute('DELETE FROM pipelines WHERE id = ?', [row.id]);
-          deletedCount++;
-        }
-      }
-      
-      // Only process first result from watch generator
-      break;
-    }
-    
-    if (deletedCount > 0) {
-      console.log(`[Cleanup] ✅ Removed ${deletedCount} rows with invalid UUIDs (processed ${processedRows} total)`);
-    } else {
-      console.log(`[Cleanup] ✅ All ${processedRows} rows have valid UUIDs`);
-    }
-    
-    return deletedCount;
-  } catch (error) {
-    console.error('[Cleanup] Failed during UUID validation:', error instanceof Error ? error.message : 'unknown');
-    return 0;
-  }
-}
-
-/**
- * Clear stuck transactions from PowerSync's internal CRUD upload queue.
- * PowerSync stores pending uploads in the internal `ps_crud` table.
- * If a bad UUID is stuck there, it will keep retrying forever.
- * This deletes stuck transactions with malformed UUIDs.
- *
- * Uses pattern matching to catch any malformed UUID, not just specific values.
- * ONE-TIME USE: Run once on startup, then remove this function after first successful launch.
- * Only needed during migration from old bad UUID format.
- */
-export async function clearStuckCrudTransactions(): Promise<number> {
-  try {
-    console.log('[CRUD Cleanup] Clearing stuck transactions with malformed UUIDs from PowerSync queue...');
-    
-    let totalRemoved = 0;
-
-    // First: Delete CRUD entries where the ID is nested in the JSON data column
-    // Target: any id field that doesn't match RFC 4122 UUID format
-    try {
-      const result1 = await powerSyncDb.execute(
-        `DELETE FROM ps_crud WHERE
-         json_extract(data, '$.id') IS NOT NULL AND
-         json_extract(data, '$.id') NOT LIKE '________-____-4___-____-____________'`,
-        [],
-      );
-      const removed1 = result1.rowsAffected ?? 0;
-      totalRemoved += removed1;
-      if (removed1 > 0) {
-        console.log(`[CRUD Cleanup] Removed ${removed1} stuck transaction(s) from data.id column`);
-      }
-    } catch (error) {
-      console.warn('[CRUD Cleanup] Could not clean data.id column:', error instanceof Error ? error.message : 'unknown');
-    }
-
-    // Second: Delete CRUD entries where the ID is at the top level
-    // Target: any top-level id that doesn't match RFC 4122 UUID format
-    try {
-      const result2 = await powerSyncDb.execute(
-        `DELETE FROM ps_crud WHERE
-         id IS NOT NULL AND
-         id NOT LIKE '________-____-4___-____-____________'`,
-        [],
-      );
-      const removed2 = result2.rowsAffected ?? 0;
-      totalRemoved += removed2;
-      if (removed2 > 0) {
-        console.log(`[CRUD Cleanup] Removed ${removed2} stuck transaction(s) from top-level id column`);
-      }
-    } catch (error) {
-      console.warn('[CRUD Cleanup] Could not clean top-level id column:', error instanceof Error ? error.message : 'unknown');
-    }
-
-    if (totalRemoved > 0) {
-      console.log(`[CRUD Cleanup] ✅ Removed ${totalRemoved} total stuck CRUD transaction(s) with malformed UUIDs`);
-    } else {
-      console.log('[CRUD Cleanup] ✅ No malformed UUID transactions found in CRUD queue');
-    }
-
-    return totalRemoved;
-  } catch (error) {
-    console.warn('[CRUD Cleanup] Could not clear CRUD queue (may not exist yet):', error instanceof Error ? error.message : 'unknown');
-    return 0;
-  }
 }

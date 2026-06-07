@@ -3,22 +3,9 @@
  * KANBAN BOARD COMPONENT
  * ============================================
  *
- * Main Kanban board with horizontally paged columns.
- * Swipe left/right to navigate between columns.
- * Tabs stay fixed at top and sync with scroll position.
- *
- * Features:
- * - Paged horizontal scroll with snap
- * - Tab sync with scroll position
- * - AddProjectButton surfaced in To Do column via onAddProject prop
- * - No drag-and-drop (status derived from progress)
- *
- * @example
- * ```tsx
- * <KanbanProvider initialItems={items}>
- *   <KanbanBoard onItemPress={handleItemPress} onAddProject={handleAddProject} />
- * </KanbanProvider>
- * ```
+ * Horizontally scrollable Kanban board with 88%-width columns.
+ * Each column peeks at ~12% so the user knows there is more to swipe.
+ * Snaps cleanly to column boundaries via snapToInterval.
  *
  * @module components/kanban/KanbanBoard
  */
@@ -55,11 +42,9 @@ export function KanbanBoard({
   const { width } = useWindowDimensions();
   const kanban = useKanban();
 
-  // 90% columns — wide enough to feel immersive, 10% peek of the adjacent column
-  const columnWidth = Math.floor(width * 0.90);
-  const snapInterval = columnWidth;
+  // 88% column width — next column peeks at ~12%
+  const columnWidth = width * 0.88;
 
-  // Get counts for all statuses
   const counts = useMemo(() => {
     const result = {} as Record<KanbanStatus, number>;
     KANBAN_STATUS_ORDER.forEach((status) => {
@@ -68,7 +53,6 @@ export function KanbanBoard({
     return result;
   }, [kanban]);
 
-  // Get items grouped by status
   const itemsByStatus = useMemo(() => {
     const result = {} as Record<KanbanStatus, KanbanItem[]>;
     KANBAN_STATUS_ORDER.forEach((status) => {
@@ -77,13 +61,12 @@ export function KanbanBoard({
     return result;
   }, [kanban]);
 
-  // Track previous page for haptic feedback
   const previousPageRef = useRef(0);
 
   const handleScrollEnd = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetX = event.nativeEvent.contentOffset.x;
-      const pageIndex = Math.round(offsetX / snapInterval);
+      const pageIndex = Math.round(offsetX / columnWidth);
       const clampedIndex = Math.max(0, Math.min(pageIndex, KANBAN_STATUS_ORDER.length - 1));
 
       if (Platform.OS !== 'web' && clampedIndex !== previousPageRef.current) {
@@ -94,17 +77,16 @@ export function KanbanBoard({
       kanban.setPageIndex(clampedIndex);
       onPageChange?.(clampedIndex);
     },
-    [snapInterval, kanban, onPageChange]
+    [columnWidth, kanban, onPageChange],
   );
 
   return (
     <View style={styles.container}>
       <ScrollView
         horizontal
-        pagingEnabled={false}
-        snapToInterval={snapInterval}
+        decelerationRate="fast"
+        snapToInterval={columnWidth}
         snapToAlignment="start"
-        decelerationRate={0.994}
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleScrollEnd}
         contentContainerStyle={styles.scrollContent}
@@ -118,7 +100,6 @@ export function KanbanBoard({
             count={counts[status] || 0}
             onCardPress={onItemPress}
             columnWidth={columnWidth}
-            // AddProjectButton only wired into the To Do column
             onAddProject={status === KANBAN_STATUS.TODO ? onAddProject : undefined}
           />
         ))}
@@ -140,6 +121,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    alignItems: 'flex-start',
+    // No extra padding — 88% column width creates the natural peek
   },
 });

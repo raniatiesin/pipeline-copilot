@@ -19,7 +19,7 @@
  * @module app/scene-segmentation/entity-editor
  */
 
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -39,8 +39,6 @@ import { borderRadius, colors, spacing, typography } from '../../constants/theme
 import { useEntityEditor, getSubjectColor, SUBJECT_COLORS } from '../../hooks/useEntityEditor';
 import { useSceneSegmentation } from '../../hooks/useSceneSegmentation';
 import { stageCallbacks } from '../../lib/stageCallbacks';
-import { updateProject, watchProject } from '../../lib/database';
-import { parseScenes, parseSubjectCategories } from '../../lib/arcAssembler';
 import type { Scene, Subject, SubjectCategory } from '../../types';
 
 // ============================================
@@ -368,52 +366,20 @@ function EmptyProfiles() {
 export default function EntityEditorScreen() {
   const { height: windowHeight } = useWindowDimensions();
   const stripHeight = Math.max(240, Math.round(windowHeight * 0.42));
-  const { projectId } = useLocalSearchParams<{ projectId?: string }>();
 
-  // Mark this card IN_PROGRESS when screen first opens (UP_NEXT → IN_PROGRESS)
-  useEffect(() => {
-    stageCallbacks.markInProgress('entity-editor');
-  }, []);
-
-  const { state, setScenes, setSubjectCategories } = useSceneSegmentation();
+  const { state } = useSceneSegmentation();
   const editor = useEntityEditor();
-
-  // ── Load beat_butcher_output from DB on mount ─────────────────────
-  // Mirrors useArcAssembler pattern exactly: single-shot watchProject read.
-  useEffect(() => {
-    if (!projectId) return;
-    let aborted = false;
-
-    const run = async () => {
-      for await (const rows of watchProject(projectId)) {
-        if (aborted) break;
-        const row = rows[0];
-        if (row) {
-          // Only seed if the context is empty (avoid overwriting in-session edits)
-          if (state.scenes.length === 0) {
-            const parsedScenes = parseScenes(row.beat_butcher_output);
-            setScenes(parsedScenes);
-          }
-          if (state.subjectCategories.length === 0 && row.entity_editor_output) {
-            const parsedCategories = parseSubjectCategories(row.entity_editor_output);
-            setSubjectCategories(parsedCategories);
-          }
-        }
-        // Single-shot — break after first emission
-        break;
-      }
-    };
-
-    run().catch(err => console.error('[EntityEditor] failed to load from DB:', err));
-    return () => { aborted = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
 
   const handleBack = useCallback(() => {
     router.back();
   }, []);
 
-  const handleContinue = useCallback(async () => {
+  // Mark card IN_PROGRESS when screen mounts
+  useEffect(() => {
+    stageCallbacks.markInProgress('entity-editor');
+  }, []);
+
+  const handleContinue = useCallback(() => {
     if (state.subjectCategories.length === 0) {
       Alert.alert(
         'No subjects tagged',
@@ -422,19 +388,9 @@ export default function EntityEditorScreen() {
       );
       return;
     }
-    // Save subject categories to DB so Arc Assembler can read them
-    if (projectId) {
-      try {
-        await updateProject(projectId, {
-          entity_editor_output: JSON.stringify(state.subjectCategories),
-        });
-      } catch (err) {
-        console.error('[EntityEditor] failed to save output:', err);
-      }
-    }
     stageCallbacks.markInReview('entity-editor');
     router.dismissAll();
-  }, [state.subjectCategories, projectId]);
+  }, [state.subjectCategories.length]);
 
   // ----------------------------------------
   // Derive appearance counts per category

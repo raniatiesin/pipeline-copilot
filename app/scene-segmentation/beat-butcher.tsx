@@ -22,7 +22,7 @@
 
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   LayoutChangeEvent,
@@ -39,12 +39,11 @@ import {
   SceneMapperCard,
 } from '../../components/scene-segmentation/scene-mapper';
 import { ScreenLayout } from '../../components/ui/ScreenLayout';
+import { stageCallbacks } from '../../lib/stageCallbacks';
 import { DROP_ZONE_HEIGHT } from '../../constants/sceneMapper';
 import { colors, spacing, typography } from '../../constants/theme';
 import { useSceneSegmentation } from '../../hooks/useSceneSegmentation';
 import { useSplitGesture } from '../../hooks/useSplitGesture';
-import { updateProject } from '../../lib/database';
-import { stageCallbacks } from '../../lib/stageCallbacks';
 import type { CardLayoutRect } from '../../types/scene-mapper-gestures';
 
 // ============================================
@@ -52,13 +51,6 @@ import type { CardLayoutRect } from '../../types/scene-mapper-gestures';
 // ============================================
 
 export default function BeatButcherScreen() {
-  const { projectId } = useLocalSearchParams<{ projectId?: string }>();
-
-  // Mark this card IN_PROGRESS when screen first opens (UP_NEXT → IN_PROGRESS)
-  useEffect(() => {
-    stageCallbacks.markInProgress('beat-butcher');
-  }, []);
-
   const {
     state,
     splitSceneAt,
@@ -300,21 +292,15 @@ export default function BeatButcherScreen() {
 
   // ── Navigation ──
 
-const handleContinue = useCallback(async () => {
-    console.log('[BeatButcher] handleContinue projectId:', projectId, 'scenes:', state.scenes.length);
-  // rest of the code...
-    if (projectId) {
-      try {
-        await updateProject(projectId, {
-          beat_butcher_output: JSON.stringify(state.scenes),
-        });
-      } catch (err) {
-        console.error('[BeatButcher] failed to save output:', err);
-      }
-    }
+  // Mark card IN_PROGRESS when screen mounts
+  useEffect(() => {
+    stageCallbacks.markInProgress('beat-butcher');
+  }, []);
+
+  const handleContinue = useCallback(() => {
     stageCallbacks.markInReview('beat-butcher');
     router.dismissAll();
-  }, [projectId, state.scenes]);
+  }, []);
 
   const handleBack = useCallback(() => {
     router.back();

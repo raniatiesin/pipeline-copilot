@@ -3,12 +3,12 @@
  * STAGE CALLBACKS — CROSS-ROUTE BRIDGE
  * ============================================
  *
- * Allows work screens (beat-butcher, entity-editor) to call
- * `markInReview` on the Stages Kanban context, which lives in a
- * separate route tree (app/stages.tsx has its own KanbanProvider).
+ * Allows work screens (beat-butcher, entity-editor, style-selector,
+ * arc-assembler) to call `markInReview` and `markInProgress` on the
+ * Stages Kanban context, which lives in a separate route tree.
  *
  * Pattern: simple mutable ref — no new library, no global store.
- * stages.tsx registers the callback on mount; work screens call it.
+ * stages.tsx registers the callbacks on mount; work screens call them.
  *
  * @module lib/stageCallbacks
  */
@@ -50,9 +50,9 @@ export const stageCallbacks = {
   },
 
   /**
-   * Called by work screens on mount (useEffect).
-   * Transitions the card from UP_NEXT → IN_PROGRESS (progress 0 → 10).
-   * No-op if stages.tsx is not mounted or card already has progress > 0.
+   * Called by work screens on mount.
+   * Moves the given module card from UP_NEXT → IN_PROGRESS (progress = 10).
+   * No-op if stages.tsx is not mounted or card is already started.
    */
   markInProgress(moduleId: string): void {
     markInProgressCallback?.(moduleId);

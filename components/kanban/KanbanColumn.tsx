@@ -3,18 +3,13 @@
  * KANBAN COLUMN COMPONENT
  * ============================================
  *
- * Single full-width column for displaying items of a specific status.
- * The status pill is pinned/floating at the top — cards scroll behind it.
- *
- * Features:
- * - Floating pinned pill (cards pass underneath when scrolling)
- * - Full-width cards with 24px horizontal padding
- * - AddProjectButton at the bottom of the To Do column (when onAddProject provided)
+ * Single column for items of a specific status.
+ * Floating pinned pill at the top; cards scroll behind it.
+ * Empty state shows a dashed border placeholder box.
  *
  * @module components/kanban/KanbanColumn
  */
 
-import { Feather } from '@expo/vector-icons';
 import React from 'react';
 import {
   ScrollView,
@@ -36,7 +31,6 @@ import { KanbanCard } from './KanbanCard';
 // PILL HEIGHT (for scroll top-padding)
 // ============================================
 
-/** Total pill height: paddingV*2 + fontSize lineHeight + border*2 + container paddingV*2 */
 const PILL_TOTAL_HEIGHT = pillSizes.big.minHeight + spacing.sm * 2;
 
 // ============================================
@@ -63,20 +57,15 @@ function ColumnTab({ label, count, colorSet }: ColumnTabProps) {
 }
 
 // ============================================
-// EMPTY STATE COMPONENT
+// EMPTY STATE — DASHED BORDER BOX
 // ============================================
 
-interface EmptyStateProps {
-  colorSet: typeof kanbanColors[keyof typeof kanbanColors];
-}
-
-function EmptyState({ colorSet }: EmptyStateProps) {
+function EmptyState() {
   return (
     <View style={styles.emptyState}>
-      <View style={[styles.emptyIcon, { backgroundColor: colorSet.background }]}>
-        <Feather name="inbox" size={32} color={colorSet.accent} />
+      <View style={styles.emptyDashedBox}>
+        <Text style={styles.emptyText}>Nothing here yet</Text>
       </View>
-      <Text style={styles.emptyText}>No items</Text>
     </View>
   );
 }
@@ -96,7 +85,6 @@ export function KanbanColumn({
   const config = KANBAN_STATUS_CONFIG[status];
   const colorSet = kanbanColors[config.colorKey];
 
-  // Card width: column width minus horizontal padding on both sides
   const cardWidth = columnWidth - kanbanLayout.columnPaddingH * 2;
 
   const renderCard = (item: KanbanItem) => (
@@ -109,15 +97,13 @@ export function KanbanColumn({
     </View>
   );
 
-  // AddProjectButton shown only in the To Do column when callback provided
   const showAddButton = status === KANBAN_STATUS.TODO && !!onAddProject;
 
   return (
     <View style={[styles.columnWrapper, { width: columnWidth }]}>
-      {/* Floating pinned pill — sits above scroll, cards pass behind */}
+      {/* Floating pinned pill */}
       <ColumnTab label={config.label} count={count} colorSet={colorSet} />
 
-      {/* Scrollable card area — extends behind the pill via negative margin */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.listContent}
@@ -128,14 +114,13 @@ export function KanbanColumn({
         overScrollMode="always"
       >
         {items.length === 0 && !showAddButton ? (
-          <EmptyState colorSet={colorSet} />
+          <EmptyState />
         ) : (
           <View style={styles.cardsGrid}>
             {items.map(renderCard)}
           </View>
         )}
 
-        {/* Add Project Button — bottom of To Do column only */}
         {showAddButton && (
           <AddProjectButton onPress={onAddProject!} />
         )}
@@ -152,7 +137,6 @@ const styles = StyleSheet.create({
   columnWrapper: {
     flex: 1,
   },
-  // Floating pill container — no border, no opaque background
   tabContainer: {
     position: 'absolute',
     top: 0,
@@ -199,7 +183,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    // Top padding pushes cards below the floating pill initially
     paddingTop: PILL_TOTAL_HEIGHT + spacing.sm,
     paddingBottom: spacing.lg,
     paddingHorizontal: kanbanLayout.columnPaddingH,
@@ -214,23 +197,28 @@ const styles = StyleSheet.create({
   cardWrapper: {
     marginHorizontal: spacing.sm,
   },
+  // Empty state — dashed border box
   emptyState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.xxl,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
-  emptyIcon: {
-    width: 56,
-    height: 56,
+  emptyDashedBox: {
+    width: '100%',
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.borderMuted,
     borderRadius: borderRadius.md,
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyText: {
     ...typography.caption,
-    fontWeight: '500',
     color: colors.text.secondary,
+    fontWeight: '500',
   },
 });

@@ -81,13 +81,12 @@ export interface KanbanItemMeta {
   quickNote?: string;
   /**
    * Whether the card is outdated because an upstream card was re-edited
-   * after this card had already started work. Cleared by markInReview on
-   * the upstream card.
+   * after this card had already started work.
    */
   isOutdated?: boolean;
   /**
    * Raw script text for project-level items.
-   * Stored at creation and passed to Beat Butcher when the stage is opened.
+   * Passed to Beat Butcher when the stage is opened.
    */
   script?: string;
 }
@@ -119,7 +118,6 @@ export interface KanbanState {
 
 /**
  * Kanban action types for state management.
- * Note: No drag actions — status is auto-derived from progress.
  */
 export type KanbanAction =
   | { type: 'SET_ITEMS'; payload: KanbanItem[] }
@@ -131,26 +129,9 @@ export type KanbanAction =
   | { type: 'APPROVE_ITEM'; payload: string }
   | { type: 'SET_PAGE_INDEX'; payload: number }
   | { type: 'SET_LOADING'; payload: boolean }
-  /**
-   * Explicitly mark a stage card as IN_REVIEW (progress → 100).
-   * Automatically unlocks the next card (downstream unlock via
-   * isModuleUnlocked) and clears isOutdated on all downstream cards.
-   */
   | { type: 'MARK_IN_REVIEW'; payload: { moduleId: string } }
-  /**
-   * Explicitly mark a stage card as DONE (progress → 100 + isApproved).
-   */
   | { type: 'MARK_DONE'; payload: { moduleId: string } }
-  /**
-   * Flag all downstream cards of moduleId as outdated.
-   * Only affects cards with progress > 0 (i.e. cards that have been started).
-   * Triggered automatically when a card drops from progress=100 to <100.
-   */
   | { type: 'FLAG_OUTDATED'; payload: { moduleId: string } }
-  /**
-   * Clear isOutdated flag from all downstream cards of moduleId.
-   * Called by MARK_IN_REVIEW internally.
-   */
   | { type: 'CLEAR_OUTDATED'; payload: { moduleId: string } };
 
 // ============================================
@@ -171,6 +152,24 @@ export interface CreateProjectData {
 // ============================================
 
 /**
+ * Raw pipeline row shape needed by the export feature.
+ * Mirrors PipelineRow in lib/database.ts — kept here to avoid circular imports.
+ */
+export interface RawPipelineRow {
+  id: string;
+  prospect_name: string;
+  post_name: string;
+  script: string;
+  style_selection: string | null;
+  beat_butcher_output: string | null;
+  entity_editor_output: string | null;
+  arc_assembler_output: string | null;
+  card_statuses: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * Kanban context value for consumers.
  */
 export interface KanbanContextValue {
@@ -180,115 +179,66 @@ export interface KanbanContextValue {
   dispatch: React.Dispatch<KanbanAction>;
 
   // ── Convenience methods ────────────────────────────────────────────
-  /** Get items for a specific status (auto-derived from progress) */
   getItemsByStatus: (status: KanbanStatus) => KanbanItem[];
-  /** Get count for a specific status */
   getCountByStatus: (status: KanbanStatus) => number;
-  /** Update progress (auto-changes status) */
   updateProgress: (id: string, progress: number) => void;
-  /** Approve item (moves from In Review to Done) */
   approveItem: (id: string) => void;
-  /** Update quick note for a card */
   updateNote: (id: string, note: string) => void;
-  /** Set active page index */
   setPageIndex: (index: number) => void;
-  /**
-   * Create a new project-level KanbanItem in the Projects Kanban.
-   * Stores prospect name, post name, and script.
-   * Status auto-derives to IN_PROGRESS (progress:10).
-   */
   createProject: (data: CreateProjectData) => void;
 
-  // ── Stage card lifecycle actions (1D) ─────────────────────────────
+  // ── Stage card lifecycle actions ───────────────────────────────────
   /**
-   * Mark a stage card IN_REVIEW by moduleId.
-   * Sets progress → 100, unlocks the next card, clears downstream isOutdated flags.
-   * Called by work screens via stageCallbacks when Continue is pressed.
+   * Mark a stage card IN_REVIEW by moduleId (progress → 100).
+   * Unlocks the next card and clears downstream isOutdated flags.
    */
   markInReview: (moduleId: string) => void;
   /**
-   * Mark a stage card IN_PROGRESS by moduleId.
-   * Sets progress → 10 (only if currently 0, i.e. UP_NEXT).
-   * Called on work screen mount to transition UP_NEXT → IN_PROGRESS.
+   * Mark a stage card IN_PROGRESS by moduleId (progress → 10).
+   * No-op if card is already started (progress > 0).
    */
   markInProgress: (moduleId: string) => void;
   /**
-   * Mark a stage card DONE by moduleId.
-   * Sets progress → 100 + isApproved → true.
-   * Triggered by the "Mark as Done" button visible only on IN_REVIEW cards.
+   * Mark a stage card DONE by moduleId (progress → 100 + isApproved → true).
    */
   markDone: (moduleId: string) => void;
-  /**
-   * Flag all downstream cards of moduleId as outdated.
-   * Downstream cards with progress > 0 get isOutdated:true.
-   * Called automatically when UPDATE_PROGRESS drops a card from 100 → <100.
-   */
   flagOutdated: (moduleId: string) => void;
-  /**
-   * Clear the isOutdated flag on all downstream cards of moduleId.
-   * Called automatically by markInReview.
-   */
   clearOutdated: (moduleId: string) => void;
+
+  // ── Data access ────────────────────────────────────────────────────
+  /**
+   * Returns the raw PipelineRow for a given project id.
+   * Used by the export feature on project cards.
+   */
+  getProjectRow: (id: string) => RawPipelineRow | null;
 }
 
 // ============================================
 // COMPONENT PROPS
 // ============================================
 
-/**
- * Props for KanbanCard component.
- */
 export interface KanbanCardProps {
-  /** Item data */
   item: KanbanItem;
-  /** Press handler */
   onPress?: (item: KanbanItem) => void;
-  /** Card width for aspect ratio calculation */
   cardWidth?: number;
 }
 
-/**
- * Props for KanbanColumn component.
- */
 export interface KanbanColumnProps {
-  /** Column status */
   status: KanbanStatus;
-  /** Items in this column */
   items: KanbanItem[];
-  /** Item count for tab badge */
   count: number;
-  /** Card press handler */
   onCardPress?: (item: KanbanItem) => void;
-  /** Column width */
   columnWidth: number;
-  /**
-   * Add-project callback — only provided for the Todo column.
-   * Renders an AddProjectButton at the bottom of the list when present.
-   */
   onAddProject?: () => void;
 }
 
-/**
- * Props for KanbanTabs component.
- */
 export interface KanbanTabsProps {
-  /** Item counts per status */
   counts: Record<KanbanStatus, number>;
 }
 
-/**
- * Props for KanbanBoard component.
- */
 export interface KanbanBoardProps {
-  /** Item press handler */
   onItemPress?: (item: KanbanItem) => void;
-  /** Action button handlers by status */
   onAction?: (status: KanbanStatus) => void;
-  /** Called when the visible page/column changes */
   onPageChange?: (pageIndex: number) => void;
-  /**
-   * Callback for adding a new project.
-   * Surfaces an AddProjectButton in the To Do column.
-   */
   onAddProject?: () => void;
 }

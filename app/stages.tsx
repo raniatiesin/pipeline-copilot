@@ -4,17 +4,11 @@
  * ============================================
  *
  * Displays the Stages Kanban for a single project:
- * the 4 pipeline cards — Style Selector, Beat Butcher,
+ * 4 pipeline cards — Style Selector, Beat Butcher,
  * Entity Editor, Arc Assembler.
  *
- * Receives project context via route params:
- *   - title:    prospect name
- *   - subtitle: post name
- *   - script:   raw script text (passed to Beat Butcher on open)
- *
- * Registers stageCallbacks.markInReview on mount so work screens
- * (beat-butcher, entity-editor) can call it via the bridge without
- * needing direct access to this KanbanProvider.
+ * Registers stageCallbacks.markInReview and markInProgress
+ * on mount so work screens can call them via the bridge.
  *
  * @module app/stages
  */
@@ -107,7 +101,7 @@ function StagesContent({ script, title, subtitle, projectId }: StagesContentProp
   const { markInReview, markInProgress, getItemsByStatus } = useKanban();
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
-  // ── Register stage callbacks for work screens ─────────────────────
+  // ── Register stageCallbacks on mount ─────────────────────────────
   useEffect(() => {
     stageCallbacks.setMarkInReview(markInReview);
     stageCallbacks.setMarkInProgress(markInProgress);
@@ -128,20 +122,17 @@ function StagesContent({ script, title, subtitle, projectId }: StagesContentProp
     } else if (item.moduleId === 'beat-butcher') {
       router.push({
         pathname: '/scene-segmentation/input' as any,
-        params: { prefill: script, projectId },
+        params: { prefill: script },
       });
     } else if (item.moduleId === 'entity-editor') {
-      router.push({
-        pathname: '/scene-segmentation/entity-editor' as any,
-        params: { projectId },
-      });
+      router.push('/scene-segmentation/entity-editor' as any);
     } else if (item.moduleId === 'arc-assembler') {
       router.push({
         pathname: '/arc-assembler/' as any,
         params: { projectId },
       });
     }
-  }, [router, script]);
+  }, [router, script, projectId]);
 
   const handleBack = useCallback(() => {
     router.back();
