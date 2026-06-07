@@ -31,7 +31,7 @@ export default function SceneSegmentationInputScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Pre-populate from project creation if a script was passed via route param
-  const { prefill } = useLocalSearchParams<{ prefill?: string }>();
+  const { prefill, projectId } = useLocalSearchParams<{ prefill?: string; projectId?: string }>();
   useEffect(() => {
     if (prefill && !state.originalScript.trim()) {
       setScript(prefill);
@@ -43,7 +43,10 @@ export default function SceneSegmentationInputScreen() {
   const handleGetStarted = () => {
     if (!state.originalScript.trim()) return;
     processScript();
-    router.push('/scene-segmentation/beat-butcher');
+    router.push({
+      pathname: '/scene-segmentation/beat-butcher' as any,
+      params: { projectId },
+    });
   };
 
   const handlePaste = async () => {

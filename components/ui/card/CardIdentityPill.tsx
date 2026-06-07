@@ -70,14 +70,13 @@ const styles = StyleSheet.create({
     minHeight: pillSizes.small.minHeight,
     justifyContent: 'center',
     borderRadius: pillSizes.small.borderRadius,
-    backgroundColor: colors.surfaceMuted,
     paddingHorizontal: spacing.sm,
   },
   title: {
-    ...typography.caption,
+    ...typography.subtitle,
     color: colors.text.primary,
-    fontWeight: '600',
-    letterSpacing: 0.2,
+    fontWeight: '700',
+    letterSpacing: 0.1,
   },
   progressPill: {
     minWidth: 58,

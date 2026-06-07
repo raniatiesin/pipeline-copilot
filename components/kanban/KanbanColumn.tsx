@@ -88,12 +88,13 @@ export function KanbanColumn({
   const cardWidth = columnWidth - kanbanLayout.columnPaddingH * 2;
 
   const renderCard = (item: KanbanItem) => (
-    <KanbanCard
-      key={item.id}
-      item={item}
-      onPress={onCardPress}
-      cardWidth={cardWidth}
-    />
+    <View key={item.id} style={styles.cardWrapper}>
+      <KanbanCard
+        item={item}
+        onPress={onCardPress}
+        cardWidth={cardWidth - spacing.sm * 2}
+      />
+    </View>
   );
 
   const showAddButton = status === KANBAN_STATUS.TODO && !!onAddProject;
@@ -186,10 +187,15 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     paddingHorizontal: kanbanLayout.columnPaddingH,
     flexGrow: 1,
+    alignItems: 'center',
   },
   cardsGrid: {
     gap: spacing.sm,
     width: '100%',
+    alignItems: 'center',
+  },
+  cardWrapper: {
+    marginHorizontal: spacing.sm,
   },
   // Empty state — dashed border box
   emptyState: {

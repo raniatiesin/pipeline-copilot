@@ -56,7 +56,7 @@ function CollageImageBase({ id, isSelected, onSelect }: CollageImageProps) {
       ]}
     >
       {source ? (
-        <Image source={source} style={styles.image} resizeMode="cover" />
+        <Image source={source} style={styles.image} resizeMode="contain" />
       ) : (
         <View style={styles.imageFallback}>
           <Text style={styles.fallbackText}>{id}</Text>
@@ -81,13 +81,13 @@ export const CollageImage = memo(CollageImageBase);
 
 const styles = StyleSheet.create({
   card: {
-    width: '47%',
-    aspectRatio: 0.7,
+    flex: 1,
+    aspectRatio: 16 / 9,
     borderRadius: borderRadius.md,
     borderWidth: getLineThickness('base'),
     borderColor: colors.border,
     overflow: 'hidden',
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: '#1a1a1a',
   },
   cardSelected: {
     borderWidth: 3,

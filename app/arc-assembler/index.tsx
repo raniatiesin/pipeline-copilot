@@ -123,6 +123,11 @@ function ArcAssemblerContent() {
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
 
+  // Mark this card IN_PROGRESS when screen first opens (UP_NEXT → IN_PROGRESS)
+  useEffect(() => {
+    stageCallbacks.markInProgress('arc-assembler');
+  }, []);
+
   const {
     mode,
     setMode,

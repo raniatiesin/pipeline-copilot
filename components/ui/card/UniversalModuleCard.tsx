@@ -43,6 +43,7 @@ export interface UniversalModuleCardProps {
   isOutdated?: boolean;
   onChangeNote?: (note: string) => void;
   onPress?: () => void;
+  onLongPress?: () => void;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
   accessibilityHint?: string;
@@ -62,6 +63,7 @@ export const UniversalModuleCard = memo(function UniversalModuleCard({
   isOutdated = false,
   onChangeNote,
   onPress,
+  onLongPress,
   style,
   accessibilityLabel,
   accessibilityHint,
@@ -97,6 +99,7 @@ export const UniversalModuleCard = memo(function UniversalModuleCard({
     <>
       <CardContainer
         onPress={onPress}
+        onLongPress={onLongPress}
         style={[styles.card, style]}
         accessibilityLabel={accessibilityLabel}
         accessibilityHint={accessibilityHint}
