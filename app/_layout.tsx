@@ -4,7 +4,7 @@
  */
 import '@azure/core-asynciterator-polyfill';
 
-import { PowerSyncProvider } from '@powersync/react-native';
+import { PowerSyncContext } from '@powersync/react';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -20,35 +20,31 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   useEffect(() => {
-    const setup = async () => {
-      // Anonymous sign-in so PowerSync has a valid JWT.
-      // Non-blocking — app works offline if this fails.
+    // Defer initialization to after first render — don't block UI rendering
+    setImmediate(async () => {
       try {
         await supabase.auth.signInAnonymously();
       } catch {
-        console.warn('[App] signInAnonymously failed — running offline');
+        // Non-blocking — app works offline
       }
-
-      // Connect PowerSync (retries automatically when back online).
       try {
         await powerSyncDb.connect(connector);
-      } catch (err) {
-        console.warn('[App] PowerSync connect error:', err);
+      } catch {
+        // Non-blocking — retries automatically
       }
-    };
+    });
 
-    setup();
-
-    // Splash screen
-    const timer = setTimeout(() => {
+    // Hide splash immediately after first render
+    // Short timeout ensures UI renders before splash hides
+    const splashTimer = setTimeout(() => {
       SplashScreen.hideAsync().catch(() => {});
-    }, 300);
+    }, 50);
 
-    return () => clearTimeout(timer);
+    return () => clearTimeout(splashTimer);
   }, []);
 
   return (
-    <PowerSyncProvider database={powerSyncDb}>
+    <PowerSyncContext.Provider value={powerSyncDb}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
           <StatusBar style="dark" />
@@ -61,6 +57,6 @@ export default function RootLayout() {
           />
         </SafeAreaProvider>
       </GestureHandlerRootView>
-    </PowerSyncProvider>
+    </PowerSyncContext.Provider>
   );
 }

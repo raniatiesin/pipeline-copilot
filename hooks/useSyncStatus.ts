@@ -4,24 +4,28 @@
  * ============================================
  *
  * Returns the current PowerSync connection status.
- * Subscribes to live status changes — re-renders when connection
- * state toggles between online and offline.
- *
- * Must be called within a component tree that is wrapped by
- * PowerSyncProvider (i.e. inside app/_layout.tsx's provider).
+ * Wired to real PowerSync status via useStatus() hook from @powersync/react.
  *
  * @module hooks/useSyncStatus
  */
 
 import { useStatus } from '@powersync/react';
 
-export type SyncStatus = 'online' | 'offline';
+export type SyncStatusResult = 'online' | 'offline';
 
 /**
  * Returns `'online'` when PowerSync is connected to the backend,
- * `'offline'` otherwise. Updates reactively on connection change.
+ * `'offline'` otherwise.
+ * 
+ * Wrapped in try/catch to handle cases where PowerSyncContext
+ * may not be initialized yet on first render.
  */
-export function useSyncStatus(): SyncStatus {
-  const status = useStatus();
-  return status.connected ? 'online' : 'offline';
+export function useSyncStatus(): SyncStatusResult {
+  try {
+    const status = useStatus();
+    return status.connected ? 'online' : 'offline';
+  } catch {
+    // PowerSyncContext not ready yet or not in scope — default to offline
+    return 'offline';
+  }
 }
