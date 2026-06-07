@@ -14,8 +14,8 @@
  * @module lib/database
  */
 
-import { MODULE_ORDER } from '@/constants/kanbanTheme';
 import { KANBAN_STATUS } from '@/constants/kanbanStatus';
+import { MODULE_ORDER } from '@/constants/kanbanTheme';
 import type { KanbanItem } from '@/types/kanban';
 import { powerSyncDb } from './powersync';
 

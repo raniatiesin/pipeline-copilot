@@ -24,29 +24,29 @@
 
 import { KANBAN_STATUS } from '@/constants/kanbanStatus';
 import { MODULE_ORDER } from '@/constants/kanbanTheme';
-import {
-  createProject as dbCreateProject,
-  rowToProjectItem,
-  rowToStageItems,
-  updateProject as dbUpdateProject,
-  watchProject,
-  watchProjects,
-} from '@/lib/database';
 import type { CardStatuses, PipelineRow, StageCardStatus } from '@/lib/database';
+import {
+    createProject as dbCreateProject,
+    updateProject as dbUpdateProject,
+    rowToProjectItem,
+    rowToStageItems,
+    watchProject,
+    watchProjects,
+} from '@/lib/database';
 import type {
-  CreateProjectData,
-  KanbanContextValue,
-  KanbanItem,
-  KanbanStatus,
+    CreateProjectData,
+    KanbanContextValue,
+    KanbanItem,
+    KanbanStatus,
 } from '@/types/kanban';
 import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
 } from 'react';
 
 // ============================================
@@ -168,25 +168,39 @@ export function KanbanProvider({
       for await (const rows of query) {
         if (aborted) break;
 
-        // Guard: ensure rows is an array before processing
-        if (!rows || !Array.isArray(rows)) {
-          console.warn('[useKanban] watch returned non-array rows:', typeof rows);
+        // Debug: log the actual structure PowerSync returns
+        if (!Array.isArray(rows)) {
+          console.warn('[useKanban] watch returned non-array:', {
+            type: typeof rows,
+            keys: rows ? Object.keys(rows) : null,
+            value: rows,
+          });
+          // Try to extract array from common PowerSync response formats
+          const arrayData = rows?.rows || rows?.data || (Array.isArray(rows) ? rows : null);
+          if (!arrayData) continue;
+          // Continue with extracted data
+        }
+
+        // Ensure we have an array
+        const rowsArray = Array.isArray(rows) ? rows : (rows?.rows || rows?.data || []);
+        
+        if (!rowsArray) {
           continue;
         }
 
-        rawRowsRef.current = rows;
+        rawRowsRef.current = rowsArray;
 
         const newItems: Record<string, KanbanItem> = {};
 
         if (projectId) {
           // Stage mode: map the single row's card_statuses to 4 stage items
-          if (rows.length > 0) {
-            rowToStageItems(rows[0]).forEach(item => { newItems[item.id] = item; });
+          if (rowsArray.length > 0) {
+            rowToStageItems(rowsArray[0]).forEach(item => { newItems[item.id] = item; });
           }
         } else {
           // Project mode: each row is a project-level card
-          if (rows.length > 0) {
-            rows.map(rowToProjectItem).forEach(item => { newItems[item.id] = item; });
+          if (rowsArray.length > 0) {
+            rowsArray.map(rowToProjectItem).forEach(item => { newItems[item.id] = item; });
           }
         }
 
