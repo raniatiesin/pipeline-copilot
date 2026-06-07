@@ -17,21 +17,34 @@ export type SyncStatusResult = 'online' | 'offline';
  * Returns `'online'` when PowerSync is connected to the backend,
  * `'offline'` otherwise.
  * 
- * Wrapped in try/catch to handle cases where PowerSyncContext
- * may not be initialized yet on first render or if context is destroyed.
+ * Wrapped in multiple layers of error handling to ensure:
+ * - PowerSyncContext initialization timing issues don't crash the component
+ * - Missing context doesn't break the UI
+ * - App always defaults to offline mode if anything goes wrong
  */
 export function useSyncStatus(): SyncStatusResult {
+  let status;
+  
+  // Layer 1: Try to call useStatus() — may fail if context not ready
   try {
-    const status = useStatus();
-    // Handle both undefined and falsy values
-    if (!status) {
-      return 'offline';
-    }
-    return status.connected ? 'online' : 'offline';
+    status = useStatus();
   } catch (error) {
-    // PowerSyncContext not ready, destroyed, or error accessing status
-    // Always safe to default to offline — app works fully offline anyway
-    console.debug('[useSyncStatus] Error reading status:', error);
+    console.debug('[useSyncStatus] Failed to call useStatus():', error instanceof Error ? error.message : String(error));
+    return 'offline';
+  }
+
+  // Layer 2: Verify status object exists and is valid
+  if (!status || typeof status !== 'object') {
+    console.debug('[useSyncStatus] Status is invalid:', typeof status);
+    return 'offline';
+  }
+
+  // Layer 3: Safe property access with fallback
+  try {
+    const connected = Boolean(status.connected);
+    return connected ? 'online' : 'offline';
+  } catch (error) {
+    console.debug('[useSyncStatus] Error accessing status.connected:', error instanceof Error ? error.message : String(error));
     return 'offline';
   }
 }
