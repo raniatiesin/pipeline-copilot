@@ -48,10 +48,20 @@ const SUBJECT_INDICATORS = [
 // ============================================
 
 /**
- * Generate a unique ID.
+ * Generate a valid UUID v4 format ID.
  */
 export function generateId(): string {
-  return `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  // Use native crypto.randomUUID() for RFC 4122 compliant UUIDs
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  // Fallback for environments without crypto.randomUUID
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 /**
