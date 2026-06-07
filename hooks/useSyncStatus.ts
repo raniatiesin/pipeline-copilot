@@ -23,28 +23,14 @@ export type SyncStatusResult = 'online' | 'offline';
  * - App always defaults to offline mode if anything goes wrong
  */
 export function useSyncStatus(): SyncStatusResult {
-  let status;
-  
-  // Layer 1: Try to call useStatus() — may fail if context not ready
   try {
-    status = useStatus();
+    const status = useStatus();
+    // Safely check if connected, default to offline
+    return status?.connected === true ? 'online' : 'offline';
   } catch (error) {
-    console.debug('[useSyncStatus] Failed to call useStatus():', error instanceof Error ? error.message : String(error));
-    return 'offline';
-  }
-
-  // Layer 2: Verify status object exists and is valid
-  if (!status || typeof status !== 'object') {
-    console.debug('[useSyncStatus] Status is invalid:', typeof status);
-    return 'offline';
-  }
-
-  // Layer 3: Safe property access with fallback
-  try {
-    const connected = Boolean(status.connected);
-    return connected ? 'online' : 'offline';
-  } catch (error) {
-    console.debug('[useSyncStatus] Error accessing status.connected:', error instanceof Error ? error.message : String(error));
+    // If useStatus() fails for any reason (context not ready, etc),
+    // default to offline — app works fully offline anyway
+    console.debug('[useSyncStatus] useStatus error, defaulting to offline:', error instanceof Error ? error.message : 'unknown error');
     return 'offline';
   }
 }
