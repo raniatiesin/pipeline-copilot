@@ -10,7 +10,6 @@
  * @module components/kanban/KanbanBoard
  */
 
-import * as Haptics from 'expo-haptics';
 import React, { useCallback, useMemo, useRef } from 'react';
 import {
   NativeScrollEvent,
@@ -22,6 +21,7 @@ import {
   View,
 } from 'react-native';
 
+import { hapticTriggers } from '@/constants/haptics';
 import { KANBAN_STATUS, KANBAN_STATUS_ORDER } from '@/constants/kanbanStatus';
 import { colors } from '@/constants/theme';
 import { useKanban } from '@/hooks/useKanban';
@@ -70,7 +70,7 @@ export function KanbanBoard({
       const clampedIndex = Math.max(0, Math.min(pageIndex, KANBAN_STATUS_ORDER.length - 1));
 
       if (Platform.OS !== 'web' && clampedIndex !== previousPageRef.current) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        hapticTriggers.pageChange();
         previousPageRef.current = clampedIndex;
       }
 
@@ -122,6 +122,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    // No extra padding — 88% column width creates the natural peek
+    paddingBottom: 24,
   },
 });

@@ -101,7 +101,7 @@ export function KanbanColumn({
 
   return (
     <View style={[styles.columnWrapper, { width: columnWidth }]}>
-      {/* Floating pinned pill */}
+      {/* Sticky pinned pill at top */}
       <ColumnTab label={config.label} count={count} colorSet={colorSet} />
 
       <ScrollView
@@ -117,13 +117,15 @@ export function KanbanColumn({
         {items.length === 0 && !showAddButton ? (
           <EmptyState />
         ) : (
-          <View style={styles.cardsGrid}>
-            {items.map(renderCard)}
-          </View>
-        )}
+          <>
+            <View style={styles.cardsGrid}>
+              {items.map(renderCard)}
+            </View>
 
-        {showAddButton && (
-          <AddProjectButton onPress={onAddProject!} />
+            {showAddButton && (
+              <AddProjectButton onPress={onAddProject!} />
+            )}
+          </>
         )}
       </ScrollView>
     </View>
@@ -139,14 +141,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
+    position: 'relative',
     alignItems: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
+    backgroundColor: colors.background,
+    zIndex: 10,
   },
   tab: {
     flexDirection: 'row',
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingTop: PILL_TOTAL_HEIGHT + spacing.sm,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.lg,
     paddingHorizontal: 0,
     flexGrow: 1,
