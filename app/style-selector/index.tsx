@@ -42,9 +42,11 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const CARD_GAP = spacing.md;
-const FILTER_PANEL_WIDTH = 140;
 const INITIAL_RENDER_COUNT = 24;
 const MAX_RENDER_BATCH = 24;
+
+// Split images into 2 pages (each ~343 images)
+const IMAGES_PER_PAGE = 343;
 
 // ============================================
 // GALLERY ITEM
@@ -70,6 +72,7 @@ const GalleryItem = React.memo(({ id, selectedId, onSelect }: GalleryItemProps) 
 
 function StyleSelectorContent() {
   const router = useRouter();
+  const [currentPage, setCurrentPage] = React.useState(0);
   const {
     filters,
     filteredIds,
@@ -83,6 +86,11 @@ function StyleSelectorContent() {
 
   const selectedId = selectedCollage?.collageId ?? null;
   const activeFilterCount = Object.values(filters).filter(v => v !== '').length;
+  
+  // Split filtered IDs into 2 pages
+  const pageStartIdx = currentPage * IMAGES_PER_PAGE;
+  const pageEndIdx = (currentPage + 1) * IMAGES_PER_PAGE;
+  const pageFilteredIds = filteredIds.slice(pageStartIdx, pageEndIdx);
 
   // Mark card IN_PROGRESS when screen mounts
   useEffect(() => {
@@ -145,37 +153,72 @@ function StyleSelectorContent() {
 
       <View style={styles.container}>
 
-        {/* GALLERY — left side */}
-        <FlatList
-          data={filteredIds}
-          keyExtractor={keyExtractor}
-          renderItem={renderItem}
-          numColumns={2}
-          columnWrapperStyle={styles.columnWrapper}
-          ItemSeparatorComponent={ItemSeparator}
-          contentContainerStyle={styles.galleryContent}
-          showsVerticalScrollIndicator={false}
-          removeClippedSubviews={true}
-          initialNumToRender={INITIAL_RENDER_COUNT}
-          maxToRenderPerBatch={MAX_RENDER_BATCH}
-          windowSize={8}
-          updateCellsBatchingPeriod={50}
+        {/* PAGED GALLERY — Swipe between page 1 & 2 */}
+        <ScrollView
+          horizontal
+          pagingEnabled
+          decelerationRate={0.92}
           scrollEventThrottle={16}
-          style={[styles.gallery, { width: SCREEN_WIDTH - FILTER_PANEL_WIDTH }]}
-          ListEmptyComponent={
-            isLoading ? null : (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No collages match these filters.</Text>
-                <TouchableOpacity onPress={handleClearFilters} style={styles.clearBtn}>
-                  <Text style={styles.clearBtnText}>CLEAR FILTERS</Text>
-                </TouchableOpacity>
-              </View>
-            )
-          }
-        />
+          onMomentumScrollEnd={(e) => {
+            const pageIndex = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+            setCurrentPage(Math.max(0, Math.min(pageIndex, 1)));
+          }}
+          showsHorizontalScrollIndicator={false}
+          style={styles.pagerContainer}
+        >
+          {/* PAGE 1 & PAGE 2 */}
+          {[0, 1].map((page) => (
+            <View key={page} style={[styles.pageContainer, { width: SCREEN_WIDTH }]}>
+              <FlatList
+                data={page === 0 ? pageFilteredIds : filteredIds.slice(IMAGES_PER_PAGE)}
+                keyExtractor={(id) => `${page}-${id}`}
+                renderItem={({ item: id }) => (
+                  <GalleryItem id={id} selectedId={selectedId} onSelect={selectCollage} />
+                )}
+                numColumns={2}
+                columnWrapperStyle={styles.columnWrapper}
+                ItemSeparatorComponent={ItemSeparator}
+                contentContainerStyle={styles.galleryContent}
+                showsVerticalScrollIndicator={false}
+                removeClippedSubviews={true}
+                initialNumToRender={INITIAL_RENDER_COUNT}
+                maxToRenderPerBatch={MAX_RENDER_BATCH}
+                windowSize={8}
+                updateCellsBatchingPeriod={50}
+                scrollEventThrottle={16}
+                ListEmptyComponent={
+                  isLoading ? null : (
+                    <View style={styles.emptyState}>
+                      <Text style={styles.emptyText}>No collages on this page.</Text>
+                      {page === 1 && (
+                        <TouchableOpacity onPress={() => setCurrentPage(0)} style={styles.clearBtn}>
+                          <Text style={styles.clearBtnText}>BACK TO PAGE 1</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )
+                }
+              />
+            </View>
+          ))}
+        </ScrollView>
 
-        {/* FILTERS PANEL — right side with overlay */}
-        <View style={[styles.filterPanel, { width: FILTER_PANEL_WIDTH }]}>
+        {/* PAGE INDICATOR */}
+        <View style={styles.pageIndicator}>
+          {[0, 1].map((page) => (
+            <TouchableOpacity
+              key={page}
+              onPress={() => setCurrentPage(page)}
+              style={[
+                styles.pageIndicatorDot,
+                currentPage === page && styles.pageIndicatorDotActive,
+              ]}
+            />
+          ))}
+        </View>
+
+        {/* FILTERS PANEL — bottom overlay */}
+        <View style={styles.filterPanel}>
           <View style={styles.filterPanelContent}>
             <View style={styles.filterPanelHeader}>
               <Text style={styles.filterPanelTitle}>FILTER</Text>
@@ -260,14 +303,44 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    flexDirection: 'row',
   },
 
-  // GALLERY
-  gallery: {
+  // PAGER
+  pagerContainer: {
     flex: 1,
     backgroundColor: colors.background,
   },
+  pageContainer: {
+    flex: 1,
+  },
+  pageIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.background,
+    borderTopWidth: getLineThickness('base'),
+    borderTopColor: colors.border,
+  },
+  pageIndicatorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.borderMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  pageIndicatorDotActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+
+  // GALLERY
   galleryContent: {
     padding: spacing.md,
   },
@@ -304,11 +377,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  // RIGHT FILTER PANEL
+  // BOTTOM FILTER PANEL
   filterPanel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: colors.surface,
-    borderLeftWidth: getLineThickness('base'),
-    borderLeftColor: colors.border,
+    borderTopWidth: getLineThickness('base'),
+    borderTopColor: colors.border,
+    maxHeight: SCREEN_HEIGHT * 0.5,
     flexDirection: 'column',
     overflow: 'hidden',
   },

@@ -139,6 +139,12 @@ export function KanbanColumn({
 const styles = StyleSheet.create({
   columnWrapper: {
     flex: 1,
+    backgroundColor: colors.background,
+    borderRightWidth: getLineThickness('base'),
+    borderRightColor: colors.border,
+    paddingVertical: kanbanLayout.columnPaddingV,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tabContainer: {
     position: 'relative',

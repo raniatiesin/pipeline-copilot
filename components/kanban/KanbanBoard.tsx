@@ -23,7 +23,7 @@ import {
 
 import { hapticTriggers } from '@/constants/haptics';
 import { KANBAN_STATUS, KANBAN_STATUS_ORDER } from '@/constants/kanbanStatus';
-import { colors } from '@/constants/theme';
+import { colors, spacing } from '@/constants/theme';
 import { useKanban } from '@/hooks/useKanban';
 import type { KanbanBoardProps, KanbanItem, KanbanStatus } from '@/types/kanban';
 
@@ -80,6 +80,10 @@ export function KanbanBoard({
     [columnWidth, kanban, onPageChange],
   );
 
+  // Calculate initial scroll offset to start on IN_PROGRESS (index 2)
+  const inProgressIndex = KANBAN_STATUS_ORDER.indexOf(KANBAN_STATUS.IN_PROGRESS);
+  const initialOffset = inProgressIndex * columnWidth;
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -92,6 +96,8 @@ export function KanbanBoard({
         contentContainerStyle={styles.scrollContent}
         style={styles.scrollView}
         scrollEventThrottle={16}
+        scrollToIndex={{ index: inProgressIndex, animated: false }}
+        contentOffset={{ x: initialOffset, y: 0 }}
       >
         {KANBAN_STATUS_ORDER.map((status) => (
           <KanbanColumn
@@ -117,11 +123,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    justifyContent: 'center',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingBottom: 24,
+    paddingHorizontal: spacing.sm,
   },
 });
