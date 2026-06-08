@@ -14,7 +14,7 @@ import React, { memo } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { pillSizes } from '@/constants/pills';
-import { colors, spacing } from '@/constants/theme';
+import { colors, shadows, spacing } from '@/constants/theme';
 
 // ============================================
 // TYPES
@@ -100,11 +100,7 @@ const styles = StyleSheet.create({
   bordered: {
     borderWidth: 3,
     borderColor: colors.border,
-    shadowColor: 'rgba(20, 22, 20, 0.08)',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 3,
-    elevation: 2,
+    ...shadows.soft,
   },
   text: {
     fontSize: 13,

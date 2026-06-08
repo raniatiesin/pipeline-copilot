@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     borderWidth: getLineThickness('base'),
     borderColor: colors.border,
     overflow: 'hidden',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.primary,
   },
   cardSelected: {
     borderWidth: 3,

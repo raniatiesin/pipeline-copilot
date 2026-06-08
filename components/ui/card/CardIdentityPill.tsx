@@ -14,7 +14,7 @@ import React, { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { pillSizes } from '@/constants/pills';
-import { colors, spacing, typography } from '@/constants/theme';
+import { colors, shadows, spacing, typography } from '@/constants/theme';
 
 export interface CardIdentityPillProps {
   title: string;
@@ -96,19 +96,21 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   iconBadgeOutdated: {
-    backgroundColor: '#ffedd5', // pale orange
-    borderWidth: 2,
-    borderColor: '#f97316',
+    backgroundColor: colors.warning,
+    borderWidth: pillSizes.small.borderWidth,
+    borderColor: colors.border,
+    ...shadows.soft,
   },
   titleWrapOutdated: {
-    backgroundColor: '#fff7ed',
+    backgroundColor: colors.surfaceMuted,
   },
   progressPillOutdated: {
-    backgroundColor: '#ffedd5',
-    borderColor: '#f97316',
+    backgroundColor: colors.warning,
+    borderColor: colors.border,
     paddingHorizontal: spacing.sm,
+    ...shadows.soft,
   },
   progressTextOutdated: {
-    color: '#c2410c',
+    color: colors.text.primary,
   },
 });
