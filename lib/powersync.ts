@@ -116,31 +116,7 @@ class SupabaseConnector implements PowerSyncBackendConnector {
 
 export const connector = new SupabaseConnector();
 
-// Initialize lazily to avoid errors if native module isn't loaded yet
-let powerSyncDbInstance: AbstractPowerSyncDatabase | null = null;
-
-export function getPowerSyncDb(): AbstractPowerSyncDatabase {
-  if (!powerSyncDbInstance) {
-    try {
-      powerSyncDbInstance = new PowerSyncDatabase({
-        schema: AppSchema,
-        database: { dbFilename: 'pipelines.db' },
-      });
-      console.log('[PowerSync] Database initialized');
-    } catch (error) {
-      console.error('[PowerSync] Failed to initialize database:', error instanceof Error ? error.message : String(error));
-      throw error;
-    }
-  }
-  return powerSyncDbInstance;
-}
-
-// Export a getter that initializes on first access
-export const powerSyncDb = new Proxy(new Object(), {
-  get: (_, prop: string | symbol) => {
-    const db = getPowerSyncDb();
-    const value = (db as any)[prop];
-    // If it's a function, bind it to the database instance
-    return typeof value === 'function' ? value.bind(db) : value;
-  },
-}) as unknown as AbstractPowerSyncDatabase;
+export const powerSyncDb = new PowerSyncDatabase({
+  schema: AppSchema,
+  database: { dbFilename: 'pipelines.db' },
+});

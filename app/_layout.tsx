@@ -26,7 +26,16 @@ export default function RootLayout() {
         .then(async () => {
           try {
             await powerSyncDb.connect(connector);
-            console.log('[PowerSync] connect resolved, status:', powerSyncDb.currentStatus);
+            console.log('[PowerSync] connect resolved');
+
+            // Wait 8 seconds then check status
+            setTimeout(() => {
+              console.log('[PowerSync] status after 8s:', JSON.stringify({
+                connected: powerSyncDb.currentStatus?.connected,
+                connecting: powerSyncDb.currentStatus?.connecting,
+                hasSynced: powerSyncDb.currentStatus?.hasSynced,
+              }));
+            }, 8000);
           } catch (error) {
             console.error('[PowerSync] connect error:', error);
           }
