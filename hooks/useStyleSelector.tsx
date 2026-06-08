@@ -63,6 +63,7 @@ export function StyleSelectorProvider({
   const [filters, setFilters] = useState<FilterState>({});
   const [selectedCollage, setSelectedCollage] = useState<StyleSelection | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mode, setMode] = useState<'gallery' | 'filters'>('gallery');
 
   // Ref so confirmSelection always sees the latest selection without
   // needing to be recreated on every selection change
@@ -150,6 +151,8 @@ export function StyleSelectorProvider({
       selectCollage,
       confirmSelection,
       isLoading,
+      mode,
+      setMode,
     }),
     [
       filters,
@@ -160,6 +163,7 @@ export function StyleSelectorProvider({
       selectCollage,
       confirmSelection,
       isLoading,
+      mode,
     ],
   );
 

@@ -68,4 +68,8 @@ export interface StyleSelectorContextValue {
   confirmSelection: () => Promise<boolean>;
   /** True while the initial DB load is in flight */
   isLoading: boolean;
+  /** Current page mode: gallery or filters */
+  mode: 'gallery' | 'filters';
+  /** Set the current page mode */
+  setMode: (mode: 'gallery' | 'filters') => void;
 }
