@@ -82,12 +82,13 @@ interface ButtonProps {
  * Wrap in a footer View or apply margin via the `style` prop.
  */
 const ACTION_BUTTON_CONFIG = {
-  backgroundColor: '#d72a21',
+  backgroundColor: colors.button.primary,
   borderRadius: pillSizes.big.borderRadius,
   borderWidth: pillSizes.big.borderWidth,
-  borderColor: '#141614',
-  shadowOffset: { width: 6, height: 6 },
-  shadowColor: 'rgba(20, 22, 20, 0.18)',
+  borderColor: colors.border,
+  shadowOffset: shadows.hard.shadowOffset,
+  shadowColor: shadows.hard.shadowColor,
+  shadowOpacity: shadows.hard.shadowOpacity,
   minHeight: pillSizes.big.minHeight,
   paddingVertical: pillSizes.big.paddingVertical,
   paddingHorizontal: pillSizes.big.paddingHorizontal,
@@ -95,7 +96,7 @@ const ACTION_BUTTON_CONFIG = {
   fontSize: typography.button.fontSize,
   letterSpacing: 0.4,
   iconSize: pillSizes.big.iconSize,
-  gap: 8,
+  gap: spacing.xs,
 } as const;
 
 // ============================================
@@ -282,11 +283,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     minHeight: ACTION_BUTTON_CONFIG.minHeight,
-    shadowColor: ACTION_BUTTON_CONFIG.shadowColor,
-    shadowOffset: ACTION_BUTTON_CONFIG.shadowOffset,
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 4,
+    ...shadows.hard,
   },
   actionButtonContent: {
     flexDirection: 'row',

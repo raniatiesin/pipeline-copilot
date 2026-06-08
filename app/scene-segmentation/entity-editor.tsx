@@ -98,14 +98,14 @@ const WordToken = React.memo(function WordToken({
   let textColor = colors.text.primary;
 
   if (isSelectionAnchor) {
-    bgColor = '#ffc22acc';
-    borderColor = '#ffc22a';
+    bgColor = colors.accentAlt + 'cc';
+    borderColor = colors.accentAlt;
   } else if (isPendingRange) {
-    bgColor = '#ffc22a55';
-    borderColor = '#ffc22a';
+    bgColor = colors.accentAlt + '55';
+    borderColor = colors.accentAlt;
   } else if (subjectInfo) {
     bgColor = subjectInfo.color + '30';
-    borderColor = subjectInfo.isAssigned ? subjectInfo.color : '#e8824f';
+    borderColor = subjectInfo.isAssigned ? subjectInfo.color : colors.secondary;
   }
 
   return (

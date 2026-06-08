@@ -37,7 +37,7 @@ import React, { useCallback } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getLineThickness } from '../../constants/line';
 import { pillSizes } from '../../constants/pills';
-import { colors, shadows, spacing, typography } from '../../constants/theme';
+import { borderRadius, colors, shadows, spacing, typography } from '../../constants/theme';
 import { useSyncStatus } from '../../hooks/useSyncStatus';
 
 // ============================================
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     borderRadius: pillSizes.small.borderRadius,
     paddingHorizontal: pillSizes.small.paddingHorizontal,
     paddingVertical: pillSizes.small.paddingVertical,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     ...shadows.soft,
   },
   progressText: {

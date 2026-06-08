@@ -16,6 +16,7 @@ import * as Clipboard from 'expo-clipboard';
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { pillSizes } from '@/constants/pills';
 import { KANBAN_STATUS } from '@/constants/kanbanStatus';
 import { MODULE_CONFIG } from '@/constants/kanbanTheme';
 import { borderRadius, colors, shadows, spacing, typography } from '@/constants/theme';
@@ -91,7 +92,7 @@ export const KanbanCard = React.memo(function KanbanCard({
       style={[
         styles.wrapper,
         accentColor
-          ? { borderLeftWidth: 4, borderLeftColor: accentColor }
+          ? { borderLeftWidth: pillSizes.big.borderWidth, borderLeftColor: accentColor }
           : styles.wrapperNoAccent,
         isTodo && styles.wrapperTodo,
         { width: effectiveWidth },
