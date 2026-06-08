@@ -84,13 +84,14 @@ export function KanbanBoard({
     <View style={styles.container}>
       <ScrollView
         horizontal
-        decelerationRate="fast"
+        decelerationRate={0.92}
         snapToInterval={columnWidth}
         snapToAlignment="start"
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleScrollEnd}
         contentContainerStyle={styles.scrollContent}
         style={styles.scrollView}
+        scrollEventThrottle={16}
       >
         {KANBAN_STATUS_ORDER.map((status) => (
           <KanbanColumn

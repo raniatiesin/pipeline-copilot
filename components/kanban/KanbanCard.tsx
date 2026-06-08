@@ -24,19 +24,11 @@ import { useKanban } from '@/hooks/useKanban';
 import { exportPipeline } from '@/lib/exportPipeline';
 import type { KanbanCardProps, KanbanStatus } from '@/types/kanban';
 
+import { CardActionModal } from './CardActionModal';
 import { UniversalModuleCard } from '../ui/card';
 
-// ============================================
-// STATUS ACCENT COLOURS
-// ============================================
-
-const STATUS_ACCENT: Record<KanbanStatus, string | null> = {
-  'todo': null,
-  'up-next': '#F59E0B',
-  'in-progress': '#F97316',
-  'in-review': '#8B5CF6',
-  'done': '#10B981',
-};
+// Status accents removed — clean neobrutalist cards without colored borders
+// Visual hierarchy conveyed through card content and status pill instead
 
 // ============================================
 // MAIN COMPONENT
@@ -48,7 +40,8 @@ export const KanbanCard = React.memo(function KanbanCard({
   cardWidth,
 }: KanbanCardProps) {
   const { updateNote, markDone, getProjectRow } = useKanban();
-  const [copied, setCopied] = useState(false);
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const iconName = useMemo(() => {
     const moduleConfig = item.moduleId
@@ -73,27 +66,31 @@ export const KanbanCard = React.memo(function KanbanCard({
   }, [item.moduleId, markDone]);
 
   const handleExport = useCallback(async () => {
-    const row = getProjectRow(item.id);
-    if (!row) return;
-    const data = exportPipeline(row);
-    await Clipboard.setStringAsync(JSON.stringify(data, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setIsExporting(true);
+    try {
+      const row = getProjectRow(item.id);
+      if (!row) return;
+      const data = exportPipeline(row);
+      await Clipboard.setStringAsync(JSON.stringify(data, null, 2));
+      setShowActionModal(false);
+    } finally {
+      setIsExporting(false);
+    }
   }, [item.id, getProjectRow]);
+
+  const handleActionModalOpen = useCallback(() => {
+    setShowActionModal(true);
+  }, []);
 
   const effectiveWidth = cardWidth || 300;
   const isInReview = item.status === KANBAN_STATUS.IN_REVIEW;
   const isTodo = item.status === KANBAN_STATUS.TODO;
   const isProjectCard = item.moduleId === 'project';
-  const accentColor = STATUS_ACCENT[item.status];
 
   return (
     <View
       style={[
         styles.wrapper,
-        accentColor
-          ? { borderLeftWidth: pillSizes.big.borderWidth, borderLeftColor: accentColor }
-          : styles.wrapperNoAccent,
         isTodo && styles.wrapperTodo,
         { width: effectiveWidth },
       ]}
@@ -128,22 +125,25 @@ export const KanbanCard = React.memo(function KanbanCard({
       {/* Export — only on project cards */}
       {isProjectCard && (
         <TouchableOpacity
-          onPress={handleExport}
+          onPress={handleActionModalOpen}
           activeOpacity={0.8}
           style={styles.exportButton}
           accessibilityRole="button"
-          accessibilityLabel={`Export ${item.title} as JSON`}
+          accessibilityLabel={`Options for ${item.title}`}
         >
-          <Feather
-            name={copied ? 'check' : 'clipboard'}
-            size={13}
-            color={copied ? colors.success : colors.text.secondary}
-          />
-          <Text style={[styles.exportText, copied && styles.exportTextCopied]}>
-            {copied ? 'COPIED!' : 'EXPORT JSON'}
-          </Text>
+          <Feather name="more-vertical" size={16} color={colors.text.secondary} />
+          <Text style={styles.exportText}>OPTIONS</Text>
         </TouchableOpacity>
       )}
+
+      {/* Action modal */}
+      <CardActionModal
+        visible={showActionModal}
+        cardTitle={item.title}
+        onClose={() => setShowActionModal(false)}
+        onExport={handleExport}
+        isExporting={isExporting}
+      />
     </View>
   );
 });
@@ -156,9 +156,6 @@ const styles = StyleSheet.create({
   wrapper: {
     borderRadius: borderRadius.md,
     gap: spacing.xs,
-  },
-  wrapperNoAccent: {
-    borderLeftWidth: 0,
   },
   wrapperTodo: {
     opacity: 0.5,
@@ -193,10 +190,11 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.borderMuted,
+    borderWidth: 3,
+    borderColor: colors.border,
     borderRadius: borderRadius.sm,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
+    ...shadows.soft,
   },
   exportText: {
     ...typography.caption,
@@ -204,8 +202,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
     fontSize: 10,
-  },
-  exportTextCopied: {
-    color: colors.success,
   },
 });

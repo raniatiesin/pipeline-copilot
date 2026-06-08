@@ -33,7 +33,7 @@ function buildStageModules(): KanbanItem[] {
     {
       id: 'style-selector',
       title: 'Style Selector',
-      description: 'Browse and select one of 690 offline visual style collages to anchor the project aesthetic.',
+      description: 'Choose visual style for the project',
       moduleId: 'style-selector',
       icon: 'image',
       status: KANBAN_STATUS.UP_NEXT,
@@ -46,7 +46,7 @@ function buildStageModules(): KanbanItem[] {
     {
       id: 'beat-butcher',
       title: 'Beat Butcher',
-      description: 'Segment the script into beats and scenes using gestures — split, merge, reorder.',
+      description: 'Segment script into beats and scenes',
       moduleId: 'beat-butcher',
       icon: 'scissors',
       status: KANBAN_STATUS.UP_NEXT,
@@ -59,7 +59,7 @@ function buildStageModules(): KanbanItem[] {
     {
       id: 'entity-editor',
       title: 'Entity Editor',
-      description: 'Identify and catalogue recurring subjects across all scenes.',
+      description: 'Map recurring subjects across scenes',
       moduleId: 'entity-editor',
       icon: 'users',
       status: KANBAN_STATUS.TODO,
@@ -72,7 +72,7 @@ function buildStageModules(): KanbanItem[] {
     {
       id: 'arc-assembler',
       title: 'Arc Assembler',
-      description: 'Combine scenes, subjects, and style into a complete visual brief for each beat.',
+      description: 'Assemble complete visual brief',
       moduleId: 'arc-assembler',
       icon: 'map',
       status: KANBAN_STATUS.TODO,
@@ -98,8 +98,8 @@ interface StagesContentProps {
 
 function StagesContent({ script, title, subtitle, projectId }: StagesContentProps) {
   const router = useRouter();
-  const { markInReview, markInProgress, getItemsByStatus } = useKanban();
-  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const { markInReview, markInProgress, getItemsByStatus, pageIndex } = useKanban();
+  const [currentPageIndex, setCurrentPageIndex] = useState(pageIndex || 0);
 
   // ── Register stageCallbacks on mount ─────────────────────────────
   useEffect(() => {

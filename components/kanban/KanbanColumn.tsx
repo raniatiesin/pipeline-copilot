@@ -109,9 +109,10 @@ export function KanbanColumn({
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={true}
         indicatorStyle="black"
-        decelerationRate="fast"
+        decelerationRate={0.92}
         bounces={true}
         overScrollMode="always"
+        scrollEventThrottle={16}
       >
         {items.length === 0 && !showAddButton ? (
           <EmptyState />
@@ -185,7 +186,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingTop: PILL_TOTAL_HEIGHT + spacing.sm,
     paddingBottom: spacing.lg,
-    paddingHorizontal: kanbanLayout.columnPaddingH,
+    paddingHorizontal: 0,
     flexGrow: 1,
     alignItems: 'center',
   },
@@ -193,9 +194,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     width: '100%',
     alignItems: 'center',
+    paddingHorizontal: kanbanLayout.columnPaddingH,
   },
   cardWrapper: {
-    marginHorizontal: spacing.sm,
+    width: '100%',
+    alignItems: 'center',
   },
   // Empty state — dashed border box
   emptyState: {
