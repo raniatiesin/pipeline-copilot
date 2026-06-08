@@ -88,6 +88,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     overflow: 'hidden',
     backgroundColor: colors.primary,
+    padding: spacing.xs,
   },
   cardSelected: {
     borderWidth: 3,
@@ -96,6 +97,7 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+    resizeMode: 'contain',
   },
   imageFallback: {
     flex: 1,

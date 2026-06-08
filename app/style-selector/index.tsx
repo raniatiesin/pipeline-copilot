@@ -12,14 +12,12 @@
  * @module app/style-selector/index
  */
 
-import { Feather } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     Alert,
     Dimensions,
     FlatList,
-    LayoutAnimation,
     Platform,
     ScrollView,
     StyleSheet,
@@ -41,10 +39,12 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const CARD_GAP = spacing.md;
-const SHEET_COLLAPSED_HEIGHT = 64;
+const FILTER_PANEL_WIDTH = 140;
+const INITIAL_RENDER_COUNT = 24;
+const MAX_RENDER_BATCH = 24;
 
 // ============================================
 // GALLERY ITEM
@@ -81,8 +81,6 @@ function StyleSelectorContent() {
     isLoading,
   } = useStyleSelector();
 
-  const [filterExpanded, setFilterExpanded] = useState(false);
-
   const selectedId = selectedCollage?.collageId ?? null;
   const activeFilterCount = Object.values(filters).filter(v => v !== '').length;
 
@@ -110,11 +108,6 @@ function StyleSelectorContent() {
     stageCallbacks.markInReview('style-selector');
     router.dismissAll();
   }, [confirmSelection, router]);
-
-  const toggleFilters = useCallback(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setFilterExpanded(prev => !prev);
-  }, []);
 
   const handleClearFilters = useCallback(() => {
     clearFilters();
@@ -152,7 +145,7 @@ function StyleSelectorContent() {
 
       <View style={styles.container}>
 
-        {/* GALLERY */}
+        {/* GALLERY — left side */}
         <FlatList
           data={filteredIds}
           keyExtractor={keyExtractor}
@@ -160,15 +153,15 @@ function StyleSelectorContent() {
           numColumns={2}
           columnWrapperStyle={styles.columnWrapper}
           ItemSeparatorComponent={ItemSeparator}
-          contentContainerStyle={[
-            styles.galleryContent,
-            { paddingBottom: SHEET_COLLAPSED_HEIGHT + spacing.xl },
-          ]}
+          contentContainerStyle={styles.galleryContent}
           showsVerticalScrollIndicator={false}
-          removeClippedSubviews
-          initialNumToRender={12}
-          maxToRenderPerBatch={16}
-          windowSize={5}
+          removeClippedSubviews={true}
+          initialNumToRender={INITIAL_RENDER_COUNT}
+          maxToRenderPerBatch={MAX_RENDER_BATCH}
+          windowSize={8}
+          updateCellsBatchingPeriod={50}
+          scrollEventThrottle={16}
+          style={[styles.gallery, { width: SCREEN_WIDTH - FILTER_PANEL_WIDTH }]}
           ListEmptyComponent={
             isLoading ? null : (
               <View style={styles.emptyState}>
@@ -181,84 +174,63 @@ function StyleSelectorContent() {
           }
         />
 
-        {/* BOTTOM SHEET FILTERS */}
-        <View
-          style={[
-            styles.filterSheet,
-            filterExpanded && { height: SCREEN_HEIGHT * 0.75 },
-          ]}
-        >
-          <TouchableOpacity
-            style={styles.sheetHeader}
-            onPress={toggleFilters}
-            activeOpacity={0.8}
-          >
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeaderRow}>
-              <Text style={styles.sheetTitle}>
-                {'Filter Styles'}
-                {activeFilterCount > 0 && (
-                  <Text style={styles.filterBadge}>{`  (${activeFilterCount})`}</Text>
-                )}
-              </Text>
-              <View style={styles.sheetHeaderRight}>
-                {activeFilterCount > 0 && (
-                  <TouchableOpacity
-                    onPress={handleClearFilters}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    style={styles.clearChip}
-                  >
-                    <Text style={styles.clearChipText}>CLEAR</Text>
-                  </TouchableOpacity>
-                )}
-                <Feather
-                  name={filterExpanded ? 'chevron-down' : 'chevron-up'}
-                  size={20}
-                  color={colors.text.primary}
-                />
-              </View>
+        {/* FILTERS PANEL — right side with overlay */}
+        <View style={[styles.filterPanel, { width: FILTER_PANEL_WIDTH }]}>
+          <View style={styles.filterPanelContent}>
+            <View style={styles.filterPanelHeader}>
+              <Text style={styles.filterPanelTitle}>FILTER</Text>
+              {activeFilterCount > 0 && (
+                <View style={styles.activeBadge}>
+                  <Text style={styles.activeBadgeText}>{activeFilterCount}</Text>
+                </View>
+              )}
             </View>
-          </TouchableOpacity>
 
-          {filterExpanded && (
+            {activeFilterCount > 0 && (
+              <TouchableOpacity onPress={handleClearFilters} style={styles.clearAllBtn}>
+                <Text style={styles.clearAllText}>CLEAR</Text>
+              </TouchableOpacity>
+            )}
+
             <ScrollView
               style={styles.filtersScroll}
               showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
+              scrollEventThrottle={16}
+              decelerationRate={0.92}
             >
               {styleMatcherData.map(q => (
                 <View key={q.id} style={styles.filterGroup}>
-                  <Text style={styles.filterTitle}>{q.title}</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.filterChipsRow}
-                  >
+                  <Text style={styles.filterGroupTitle}>{q.title}</Text>
+                  <View style={styles.filterOptions}>
                     {q.options.map(opt => {
                       const isActive = filters[q.id] === opt.label;
                       return (
                         <TouchableOpacity
                           key={opt.label}
-                          style={[styles.filterChip, isActive && styles.filterChipActive]}
+                          style={[styles.filterOption, isActive && styles.filterOptionActive]}
                           onPress={() => toggleFilter(q.id, opt.label)}
                         >
                           <Text
                             style={[
-                              styles.filterChipText,
-                              isActive && styles.filterChipTextActive,
+                              styles.filterOptionText,
+                              isActive && styles.filterOptionTextActive,
                             ]}
+                            numberOfLines={1}
                           >
                             {opt.label}
                           </Text>
                         </TouchableOpacity>
                       );
                     })}
-                  </ScrollView>
+                  </View>
                 </View>
               ))}
               <View style={styles.filterFooterPadding} />
             </ScrollView>
-          )}
+          </View>
+
+          {/* Subtle overlay hint */}
+          <View style={styles.filterOverlay} pointerEvents="none" />
         </View>
 
       </View>
@@ -288,14 +260,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    flexDirection: 'row',
   },
 
   // GALLERY
+  gallery: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   galleryContent: {
     padding: spacing.md,
   },
   columnWrapper: {
     justifyContent: 'space-between',
+    gap: CARD_GAP,
   },
   rowSeparator: {
     height: CARD_GAP,
@@ -326,114 +304,111 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  // BOTTOM SHEET
-  filterSheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+  // RIGHT FILTER PANEL
+  filterPanel: {
     backgroundColor: colors.surface,
-    borderTopWidth: getLineThickness('heavy'),
-    borderTopColor: colors.border,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    maxHeight: SCREEN_HEIGHT * 0.75,
+    borderLeftWidth: getLineThickness('base'),
+    borderLeftColor: colors.border,
+    flexDirection: 'column',
     overflow: 'hidden',
   },
-  sheetHeader: {
-    padding: spacing.md,
-    paddingTop: spacing.sm,
-    alignItems: 'center',
-    backgroundColor: colors.surfaceMuted,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    borderBottomWidth: getLineThickness('base'),
-    borderBottomColor: colors.border,
+  filterPanelContent: {
+    flex: 1,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.sm,
   },
-  sheetHandle: {
-    width: 40,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: colors.borderMuted,
-    marginBottom: spacing.xs,
-  },
-  sheetHeaderRow: {
+  filterPanelHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
+    paddingBottom: spacing.xs,
+    borderBottomWidth: getLineThickness('base'),
+    borderBottomColor: colors.border,
+    marginBottom: spacing.xs,
   },
-  sheetTitle: {
-    ...typography.subtitle,
+  filterPanelTitle: {
+    ...typography.overline,
     color: colors.text.primary,
+    fontSize: 9,
   },
-  filterBadge: {
-    ...typography.subtitle,
-    color: colors.secondary,
-  },
-  sheetHeaderRight: {
-    flexDirection: 'row',
+  activeBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.accentAlt,
     alignItems: 'center',
-    gap: spacing.sm,
+    justifyContent: 'center',
   },
-  clearChip: {
+  activeBadgeText: {
+    ...typography.overline,
+    color: colors.primary,
+    fontSize: 8,
+  },
+  clearAllBtn: {
+    paddingVertical: spacing.xxs,
     paddingHorizontal: spacing.xs,
-    paddingVertical: 3,
+    marginBottom: spacing.xs,
     borderRadius: borderRadius.sm,
-    borderWidth: getLineThickness('base'),
-    borderColor: colors.border,
+    borderWidth: 1,
+    borderColor: colors.borderMuted,
     backgroundColor: colors.background,
   },
-  clearChipText: {
+  clearAllText: {
     ...typography.caption,
-    color: colors.text.primary,
-    fontWeight: '800',
-    fontSize: 10,
+    color: colors.text.secondary,
+    fontWeight: '700',
+    fontSize: 8,
   },
 
   // FILTER GROUPS
   filtersScroll: {
     flex: 1,
-    paddingTop: spacing.sm,
   },
   filterGroup: {
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  filterTitle: {
-    ...typography.caption,
-    fontWeight: '700',
     marginBottom: spacing.xs,
+  },
+  filterGroupTitle: {
+    ...typography.overline,
     color: colors.text.secondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontSize: 7,
+    marginBottom: spacing.xxs,
+    paddingHorizontal: spacing.xxs,
   },
-  filterChipsRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-    paddingRight: spacing.md,
+  filterOptions: {
+    gap: spacing.xxs,
   },
-  filterChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+  filterOption: {
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.xs,
     borderRadius: borderRadius.sm,
-    borderWidth: getLineThickness('base'),
+    borderWidth: 1,
     borderColor: colors.borderMuted,
     backgroundColor: colors.background,
+    marginHorizontal: spacing.xxs,
   },
-  filterChipActive: {
+  filterOptionActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  filterChipText: {
+  filterOptionText: {
     ...typography.caption,
-    color: colors.text.primary,
-    fontWeight: '600',
+    color: colors.text.secondary,
+    fontWeight: '500',
+    fontSize: 8,
   },
-  filterChipTextActive: {
+  filterOptionTextActive: {
     color: colors.text.inverse,
   },
   filterFooterPadding: {
-    height: spacing.xl,
+    height: spacing.md,
+  },
+  filterOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+    backgroundColor: 'rgba(20, 22, 20, 0.03)',
+    pointerEvents: 'none',
   },
 });

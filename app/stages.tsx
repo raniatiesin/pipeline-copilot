@@ -49,7 +49,7 @@ function buildStageModules(): KanbanItem[] {
       description: 'Segment script into beats and scenes',
       moduleId: 'beat-butcher',
       icon: 'scissors',
-      status: KANBAN_STATUS.UP_NEXT,
+      status: KANBAN_STATUS.IN_PROGRESS,
       order: 2,
       createdAt: new Date(),
       updatedAt: new Date(),
