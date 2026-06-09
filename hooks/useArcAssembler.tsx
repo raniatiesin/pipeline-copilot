@@ -34,7 +34,7 @@ import React, {
   useState,
 } from 'react';
 
-import { updateProject, watchProject } from '@/lib/database';
+import { updateCardProgress, updateProject, watchProject } from '@/lib/database';
 import {
   buildTagsPlaceholder,
   parseArcOutput,
@@ -158,6 +158,18 @@ export function ArcAssemblerProvider({ children, projectId }: ArcAssemblerProvid
       }).catch(err => console.error('[ArcAssembler] debounced save failed:', err));
     }, 800);
   }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    const hasBrief =
+      Object.values(sceneBriefs).some(t => t.trim().length > 0) ||
+      Object.values(subjectBriefs).some(t => t.trim().length > 0);
+    if (hasBrief) {
+      updateCardProgress(projectId, 'arc-assembler', 50).catch(err =>
+        console.error('[ArcAssembler] progress update failed:', err),
+      );
+    }
+  }, [projectId, sceneBriefs, subjectBriefs]);
 
   // ── Actions ───────────────────────────────────────────────────────
 

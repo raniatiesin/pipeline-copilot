@@ -26,7 +26,7 @@ import React, {
     useState,
 } from 'react';
 
-import { updateProject, watchProject } from '@/lib/database';
+import { updateCardProgress, updateProject, watchProject } from '@/lib/database';
 import {
     buildSelection,
     filterCollages,
@@ -117,10 +117,16 @@ export function StyleSelectorProvider({
   }, []);
 
   const selectCollage = useCallback((id: number) => {
-    setSelectedCollage(prev =>
-      prev?.collageId === id ? null : buildSelection(id),
-    );
-  }, []);
+    setSelectedCollage(prev => {
+      const next = prev?.collageId === id ? null : buildSelection(id);
+      if (next && projectId) {
+        updateCardProgress(projectId, 'style-selector', 50).catch(err =>
+          console.error('[StyleSelector] progress update failed:', err),
+        );
+      }
+      return next;
+    });
+  }, [projectId]);
 
   /**
    * Persist selection to DB and mark this card In Review.

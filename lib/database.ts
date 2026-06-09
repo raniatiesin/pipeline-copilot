@@ -23,11 +23,7 @@ import { powerSyncDb } from './powersync';
 // TYPES
 // ============================================
 
-/** Status token stored in card_statuses JSON */
-export type StoredStageStatus = 'TODO' | 'UP_NEXT' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE';
-
 export interface StageCardStatus {
-  status?: StoredStageStatus | string;
   progress: number;
   isApproved: boolean;
   isOutdated: boolean;
@@ -66,8 +62,7 @@ export interface PipelineUpdate {
 // STAGE CONFIG
 // ============================================
 
-const DEFAULT_STAGE_STATUS: StageCardStatus = {
-  status: 'TODO',
+export const DEFAULT_STAGE_STATUS: StageCardStatus = {
   progress: 0,
   isApproved: false,
   isOutdated: false,
@@ -75,52 +70,39 @@ const DEFAULT_STAGE_STATUS: StageCardStatus = {
 };
 
 // ============================================
-// STATUS HELPERS
+// STATUS DERIVATION (progress + unlock chain)
 // ============================================
 
-export function kanbanToStoredStatus(status: KanbanStatus): StoredStageStatus {
-  switch (status) {
-    case KANBAN_STATUS.TODO:
-      return 'TODO';
-    case KANBAN_STATUS.UP_NEXT:
-      return 'UP_NEXT';
-    case KANBAN_STATUS.IN_PROGRESS:
-      return 'IN_PROGRESS';
-    case KANBAN_STATUS.IN_REVIEW:
-      return 'IN_REVIEW';
-    case KANBAN_STATUS.DONE:
-      return 'DONE';
+/** style-selector and beat-butcher are always unlocked; others follow the chain. */
+export function isModuleUnlocked(moduleId: string, statuses: CardStatuses): boolean {
+  switch (moduleId) {
+    case 'style-selector':
+    case 'beat-butcher':
+      return true;
+    case 'entity-editor':
+      return (statuses['beat-butcher']?.progress ?? 0) >= 100;
+    case 'arc-assembler':
+      return (statuses['entity-editor']?.progress ?? 0) >= 100;
     default:
-      return 'TODO';
+      return false;
   }
 }
 
-export function storedStatusToKanban(stored: string | undefined): KanbanStatus | null {
-  if (!stored) return null;
-  switch (stored.toUpperCase()) {
-    case 'TODO':
-      return KANBAN_STATUS.TODO;
-    case 'UP_NEXT':
-      return KANBAN_STATUS.UP_NEXT;
-    case 'IN_PROGRESS':
-      return KANBAN_STATUS.IN_PROGRESS;
-    case 'IN_REVIEW':
-      return KANBAN_STATUS.IN_REVIEW;
-    case 'DONE':
-      return KANBAN_STATUS.DONE;
-    default:
-      return null;
-  }
-}
+/**
+ * Derive Kanban column status from progress, isApproved, and unlock chain.
+ * Status is never stored — always computed.
+ */
+export function deriveStageStatus(
+  moduleId: string,
+  card: StageCardStatus,
+  statuses: CardStatuses,
+): KanbanStatus {
+  const progress = card.progress ?? 0;
 
-/** Resolve column status from stored card_statuses entry (legacy progress fallback). */
-export function resolveKanbanStatus(card: StageCardStatus): KanbanStatus {
-  const fromStored = storedStatusToKanban(card.status);
-  if (fromStored) return fromStored;
-
-  if (card.isApproved) return KANBAN_STATUS.DONE;
-  if (card.progress >= 100) return KANBAN_STATUS.IN_REVIEW;
-  if (card.progress > 0) return KANBAN_STATUS.IN_PROGRESS;
+  if (card.isApproved && progress >= 100) return KANBAN_STATUS.DONE;
+  if (progress >= 100) return KANBAN_STATUS.IN_REVIEW;
+  if (progress > 0) return KANBAN_STATUS.IN_PROGRESS;
+  if (isModuleUnlocked(moduleId, statuses)) return KANBAN_STATUS.UP_NEXT;
   return KANBAN_STATUS.TODO;
 }
 
@@ -165,23 +147,23 @@ const STAGE_CONFIG: Record<string, {
 // ROW → KANBAN ITEM MAPPERS
 // ============================================
 
-/**
- * Derive overall project progress from card_statuses.
- * Returns 10 minimum so the project card always derives to IN_PROGRESS.
- */
-function computeProjectProgress(cardStatusesJson: string | null): number {
-  if (!cardStatusesJson) return 10;
-  try {
-    const statuses: CardStatuses = JSON.parse(cardStatusesJson);
-    const done = MODULE_ORDER.filter((m) => {
-      const s = statuses[m];
-      if (!s) return false;
-      return resolveKanbanStatus(s) === KANBAN_STATUS.DONE;
-    }).length;
-    return Math.max(10, Math.round((done / MODULE_ORDER.length) * 100));
-  } catch {
-    return 10;
-  }
+function parseCardStatuses(json: string | null | undefined): CardStatuses {
+  if (!json) return {};
+  try { return JSON.parse(json) as CardStatuses; } catch { return {}; }
+}
+
+function cardStatus(statuses: CardStatuses, moduleId: string): StageCardStatus {
+  return { ...DEFAULT_STAGE_STATUS, ...(statuses[moduleId] ?? {}) };
+}
+
+/** Overall project progress = average of all 4 stage card progress values. */
+export function computeProjectProgress(cardStatusesJson: string | null): number {
+  const statuses = parseCardStatuses(cardStatusesJson);
+  const bb = cardStatus(statuses, 'beat-butcher').progress;
+  const ss = cardStatus(statuses, 'style-selector').progress;
+  const ee = cardStatus(statuses, 'entity-editor').progress;
+  const aa = cardStatus(statuses, 'arc-assembler').progress;
+  return Math.round((bb + ss + ee + aa) / 4);
 }
 
 /**
@@ -210,13 +192,10 @@ export function rowToProjectItem(row: PipelineRow): KanbanItem {
  * (the cards shown in the Stages Kanban for that project).
  */
 export function rowToStageItems(row: PipelineRow): KanbanItem[] {
-  let statuses: CardStatuses = {};
-  if (row.card_statuses) {
-    try { statuses = JSON.parse(row.card_statuses); } catch { /* use defaults */ }
-  }
+  const statuses = parseCardStatuses(row.card_statuses);
 
   return (MODULE_ORDER as readonly string[]).map(moduleId => {
-    const s: StageCardStatus = { ...DEFAULT_STAGE_STATUS, ...(statuses[moduleId] ?? {}) };
+    const s = cardStatus(statuses, moduleId);
     const cfg = STAGE_CONFIG[moduleId];
     return {
       id: moduleId,
@@ -224,7 +203,7 @@ export function rowToStageItems(row: PipelineRow): KanbanItem[] {
       description: cfg.description,
       icon: cfg.icon,
       moduleId,
-      status: resolveKanbanStatus(s),
+      status: deriveStageStatus(moduleId, s, statuses),
       order: cfg.order,
       progress: s.progress,
       isApproved: s.isApproved,
@@ -311,21 +290,21 @@ export async function createProject(data: {
   const now = new Date().toISOString();
 
   const defaultStatuses: CardStatuses = {
-    'style-selector': {
-      ...DEFAULT_STAGE_STATUS,
-      status: 'UP_NEXT',
-    },
     'beat-butcher': {
       ...DEFAULT_STAGE_STATUS,
-      status: 'IN_PROGRESS',
+      progress: 50,
+    },
+    'style-selector': {
+      ...DEFAULT_STAGE_STATUS,
+      progress: 0,
     },
     'entity-editor': {
       ...DEFAULT_STAGE_STATUS,
-      status: 'TODO',
+      progress: 0,
     },
     'arc-assembler': {
       ...DEFAULT_STAGE_STATUS,
-      status: 'TODO',
+      progress: 0,
     },
   };
 
@@ -354,6 +333,33 @@ export async function getProject(projectId: string): Promise<PipelineRow | null>
   );
   const rows = (result as PipelineRow[]) ?? [];
   return rows[0] ?? null;
+}
+
+/**
+ * Updates a single stage card's progress (0–100) in card_statuses.
+ * Progress only increases unless explicitly set lower via updateProgress in useKanban.
+ */
+export async function updateCardProgress(
+  projectId: string,
+  moduleId: string,
+  progress: number,
+): Promise<void> {
+  const row = await getProject(projectId);
+  if (!row) return;
+
+  const statuses = parseCardStatuses(row.card_statuses);
+  const current = cardStatus(statuses, moduleId);
+  const clamped = Math.max(0, Math.min(100, progress));
+
+  const next: CardStatuses = {
+    ...statuses,
+    [moduleId]: {
+      ...current,
+      progress: Math.max(current.progress, clamped),
+    },
+  };
+
+  await updateProject(projectId, { card_statuses: JSON.stringify(next) });
 }
 
 /**

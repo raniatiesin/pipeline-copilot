@@ -40,10 +40,19 @@ function ProjectsKanbanContent() {
     setShowModal(false);
   }, []);
 
-  const handleCreateProject = useCallback((data: CreateProjectData) => {
-    createProject(data);
+  const handleCreateProject = useCallback(async (data: CreateProjectData) => {
+    const id = await createProject(data);
     setShowModal(false);
-  }, [createProject]);
+    router.push({
+      pathname: '/stages' as any,
+      params: {
+        projectId: id,
+        title: data.prospectName,
+        subtitle: data.postName,
+        script: data.script,
+      },
+    });
+  }, [createProject, router]);
 
   const handleItemPress = useCallback((item: KanbanItem) => {
     router.push({

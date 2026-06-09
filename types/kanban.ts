@@ -187,22 +187,21 @@ export interface KanbanContextValue {
   approveItem: (id: string) => void;
   updateNote: (id: string, note: string) => void;
   setPageIndex: (index: number) => void;
-  createProject: (data: CreateProjectData) => void;
+  createProject: (data: CreateProjectData) => Promise<string>;
   deleteProject: (id: string) => void;
 
   // ── Stage card lifecycle actions ───────────────────────────────────
   /**
    * Mark a stage card IN_REVIEW by moduleId (progress → 100).
-   * Unlocks the next card and clears downstream isOutdated flags.
+   * Unlock chain is derived automatically from progress values.
    */
   markInReview: (moduleId: string) => void;
   /**
-   * Mark a stage card IN_PROGRESS by moduleId (progress → 10).
-   * No-op if card is already started (progress > 0).
+   * Mark a stage card IN_PROGRESS by moduleId (progress 0 → 1 when UP_NEXT).
    */
   markInProgress: (moduleId: string) => void;
   /**
-   * Mark a stage card DONE by moduleId (progress → 100 + isApproved → true).
+   * Mark a stage card DONE by moduleId (isApproved → true).
    */
   markDone: (moduleId: string) => void;
   flagOutdated: (moduleId: string) => void;

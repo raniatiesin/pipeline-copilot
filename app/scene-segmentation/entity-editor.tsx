@@ -21,7 +21,7 @@
 
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -41,8 +41,9 @@ import { borderRadius, colors, shadows, spacing, typography } from '../../consta
 import { useEntityEditor, getSubjectColor, SUBJECT_COLORS } from '../../hooks/useEntityEditor';
 import { useSceneSegmentation } from '../../hooks/useSceneSegmentation';
 import { stageCallbacks } from '../../lib/stageCallbacks';
-import { getProject, resolveKanbanStatus } from '../../lib/database';
+import { getProject, deriveStageStatus, updateCardProgress, updateProject } from '../../lib/database';
 import type { CardStatuses } from '../../lib/database';
+import { parseScenes, parseSubjectCategories } from '../../lib/arcAssembler';
 import type { Scene, Subject, SubjectCategory } from '../../types';
 
 // ============================================
@@ -373,8 +374,45 @@ export default function EntityEditorScreen() {
   const { projectId } = useLocalSearchParams<{ projectId?: string }>();
   const stripHeight = Math.max(240, Math.round(windowHeight * 0.42));
 
-  const { state } = useSceneSegmentation();
+  const { state, setScenes, setSubjectCategories } = useSceneSegmentation();
   const editor = useEntityEditor();
+  const dataLoadedRef = useRef(false);
+
+  useEffect(() => {
+    if (!projectId || dataLoadedRef.current) return;
+
+    let aborted = false;
+
+    const load = async () => {
+      const row = await getProject(projectId);
+      if (!row || aborted) return;
+
+      dataLoadedRef.current = true;
+
+      const scenes = parseScenes(row.beat_butcher_output);
+      if (scenes.length > 0) {
+        setScenes(scenes);
+      }
+
+      const categories = parseSubjectCategories(row.entity_editor_output);
+      if (categories.length > 0) {
+        setSubjectCategories(categories);
+      }
+    };
+
+    load().catch(err => console.error('[EntityEditor] load failed:', err));
+
+    return () => { aborted = true; };
+  }, [projectId, setScenes, setSubjectCategories]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    if (state.subjectCategories.length > 0) {
+      updateCardProgress(projectId, 'entity-editor', 50).catch(err =>
+        console.error('[EntityEditor] progress update failed:', err),
+      );
+    }
+  }, [projectId, state.subjectCategories.length]);
 
   const handleBack = useCallback(() => {
     router.back();
@@ -397,6 +435,13 @@ export default function EntityEditorScreen() {
     }
 
     stageCallbacks.markInReview('entity-editor');
+
+    if (projectId) {
+      await updateProject(projectId, {
+        entity_editor_output: JSON.stringify(state.subjectCategories),
+      });
+    }
+
     router.dismissAll();
 
     if (!projectId) return;
@@ -407,7 +452,9 @@ export default function EntityEditorScreen() {
     try {
       const statuses = JSON.parse(row.card_statuses) as CardStatuses;
       const styleStatus = statuses['style-selector'];
-      const styleResolved = styleStatus ? resolveKanbanStatus(styleStatus) : KANBAN_STATUS.TODO;
+      const styleResolved = styleStatus
+        ? deriveStageStatus('style-selector', styleStatus, statuses)
+        : KANBAN_STATUS.TODO;
       const styleDone =
         styleResolved === KANBAN_STATUS.IN_REVIEW ||
         styleResolved === KANBAN_STATUS.DONE;

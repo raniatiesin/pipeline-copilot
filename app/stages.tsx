@@ -53,7 +53,7 @@ function buildStageModules(): KanbanItem[] {
       order: 2,
       createdAt: new Date(),
       updatedAt: new Date(),
-      progress: 0,
+      progress: 50,
       priority: 'high',
     },
     {
@@ -123,8 +123,8 @@ function StagesContent({ script, title, subtitle, projectId }: StagesContentProp
       });
     } else if (item.moduleId === 'beat-butcher') {
       router.push({
-        pathname: '/scene-segmentation/input' as any,
-        params: { prefill: script, projectId },
+        pathname: '/scene-segmentation/beat-butcher' as any,
+        params: { projectId },
       });
     } else if (item.moduleId === 'entity-editor') {
       router.push({
@@ -137,7 +137,7 @@ function StagesContent({ script, title, subtitle, projectId }: StagesContentProp
         params: { projectId },
       });
     }
-  }, [router, script, projectId]);
+  }, [router, projectId]);
 
   const handleBack = useCallback(() => {
     router.back();

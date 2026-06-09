@@ -22,7 +22,7 @@
 
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   LayoutChangeEvent,
@@ -41,6 +41,8 @@ import {
 import { KANBAN_STATUS } from '../../constants/kanbanStatus';
 import { ScreenLayout } from '../../components/ui/ScreenLayout';
 import { stageCallbacks } from '../../lib/stageCallbacks';
+import { getProject, updateProject } from '../../lib/database';
+import { parseScenes } from '../../lib/arcAssembler';
 import { DROP_ZONE_HEIGHT } from '../../constants/sceneMapper';
 import { colors, spacing, typography } from '../../constants/theme';
 import { useSceneSegmentation } from '../../hooks/useSceneSegmentation';
@@ -52,13 +54,44 @@ import type { CardLayoutRect } from '../../types/scene-mapper-gestures';
 // ============================================
 
 export default function BeatButcherScreen() {
+  const { projectId } = useLocalSearchParams<{ projectId?: string }>();
   const {
     state,
     splitSceneAt,
     mergeScenesById,
     reorderSceneById,
     deleteScene,
+    initializeFromScript,
+    setScenes,
   } = useSceneSegmentation();
+  const scriptLoadedRef = useRef(false);
+
+  useEffect(() => {
+    if (!projectId || scriptLoadedRef.current) return;
+
+    let aborted = false;
+
+    const load = async () => {
+      const row = await getProject(projectId);
+      if (!row || aborted) return;
+
+      scriptLoadedRef.current = true;
+
+      const savedScenes = parseScenes(row.beat_butcher_output);
+      if (savedScenes.length > 0) {
+        setScenes(savedScenes);
+        return;
+      }
+
+      if (row.script?.trim()) {
+        initializeFromScript(row.script);
+      }
+    };
+
+    load().catch(err => console.error('[BeatButcher] load failed:', err));
+
+    return () => { aborted = true; };
+  }, [projectId, initializeFromScript, setScenes]);
 
   // ── Global gesture lock ──
 
@@ -299,10 +332,15 @@ export default function BeatButcherScreen() {
     }
   }, []);
 
-  const handleContinue = useCallback(() => {
+  const handleContinue = useCallback(async () => {
+    if (projectId) {
+      await updateProject(projectId, {
+        beat_butcher_output: JSON.stringify(state.scenes),
+      });
+    }
     stageCallbacks.markInReview('beat-butcher');
     router.dismissAll();
-  }, []);
+  }, [projectId, state.scenes]);
 
   const handleBack = useCallback(() => {
     router.back();
