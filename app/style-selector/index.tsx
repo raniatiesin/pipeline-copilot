@@ -3,50 +3,48 @@
  * STYLE SELECTOR — GALLERY & FILTERS
  * ============================================
  *
- * Two-page horizontal swipe layout:
- *   LEFT  — Gallery: 686 collage thumbnails in 2-column virtualized grid
- *   RIGHT — Filters: 12 filter questions as scrollable chip rows
- *
- * Tapping a collage selects it. Continue persists the selection + marks In Review.
+ * Gallery: virtualized collage grid with 1/2/3 column toggle.
+ * Filters: 2-column chip grid per question (FlatList, no nested ScrollView).
  *
  * @module app/style-selector/index
  */
 
+import { Feather } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    FlatList,
-    NativeScrollEvent,
-    NativeSyntheticEvent,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    UIManager,
-    View,
-    useWindowDimensions,
+  Alert,
+  FlatList,
+  ListRenderItem,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  UIManager,
+  View,
+  useWindowDimensions,
 } from 'react-native';
 
-import { CollageImage } from '@/components/style-selector/CollageImage';
+import {
+  COLLAGE_ASPECT_RATIO,
+  CollageImage,
+} from '@/components/style-selector/CollageImage';
 import { ScreenLayout } from '@/components/ui/ScreenLayout';
 import { getLineThickness } from '@/constants/line';
 import { styleMatcherData } from '@/constants/styleMatcherData';
-import { borderRadius, colors, spacing, typography } from '@/constants/theme';
+import { borderRadius, colors, shadows, spacing, typography } from '@/constants/theme';
 import { StyleSelectorProvider, useStyleSelector } from '@/hooks/useStyleSelector';
 import { stageCallbacks } from '@/lib/stageCallbacks';
+
+type FilterQuestion = (typeof styleMatcherData)[number];
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-const CARD_GAP = spacing.md;
-const INITIAL_RENDER_COUNT = 24;
-const MAX_RENDER_BATCH = 24;
+const INITIAL_RENDER_COUNT = 6;
+const MAX_RENDER_BATCH = 6;
+const CHIP_MIN_HEIGHT = spacing.xl + spacing.xs;
 
 // ============================================
 // GALLERY ITEM
@@ -55,93 +53,191 @@ const MAX_RENDER_BATCH = 24;
 interface GalleryItemProps {
   id: number;
   selectedId: number | null;
+  itemWidth: number;
   onSelect: (id: number) => void;
 }
 
-const GalleryItem = React.memo(({ id, selectedId, onSelect }: GalleryItemProps) => (
-  <CollageImage
-    id={id}
-    isSelected={selectedId === id}
-    onSelect={onSelect}
-  />
-));
+const GalleryItem = React.memo(function GalleryItem({
+  id,
+  selectedId,
+  itemWidth,
+  onSelect,
+}: GalleryItemProps) {
+  return (
+    <CollageImage
+      id={id}
+      width={itemWidth}
+      isSelected={selectedId === id}
+      onSelect={onSelect}
+    />
+  );
+});
 
 // ============================================
-// MODE INDICATOR
+// GALLERY TOOLBAR
 // ============================================
 
-interface ModeIndicatorProps {
-  mode: 'gallery' | 'filters';
-  onSelect: (mode: 'gallery' | 'filters') => void;
+interface GalleryToolbarProps {
+  numColumns: number;
+  onColumnChange: (cols: 1 | 2 | 3) => void;
+  onOpenFilters: () => void;
 }
 
-function ModeIndicator({ mode, onSelect }: ModeIndicatorProps) {
-  return (
-    <View style={indicatorStyles.row}>
-      <TouchableOpacity
-        style={[
-          indicatorStyles.tab,
-          mode === 'gallery' && indicatorStyles.tabActive,
-        ]}
-        onPress={() => onSelect('gallery')}
-        activeOpacity={0.75}
-      >
-        <Text
-          style={[
-            indicatorStyles.tabLabel,
-            mode === 'gallery' && indicatorStyles.tabLabelActive,
-          ]}
-        >
-          GALLERY
-        </Text>
-      </TouchableOpacity>
+function GalleryToolbar({ numColumns, onColumnChange, onOpenFilters }: GalleryToolbarProps) {
+  const columns: Array<1 | 2 | 3> = [1, 2, 3];
+  const icons: Record<1 | 2 | 3, keyof typeof Feather.glyphMap> = {
+    1: 'square',
+    2: 'grid',
+    3: 'columns',
+  };
 
-      <TouchableOpacity
-        style={[
-          indicatorStyles.tab,
-          mode === 'filters' && indicatorStyles.tabActive,
-        ]}
-        onPress={() => onSelect('filters')}
-        activeOpacity={0.75}
-      >
-        <Text
+  return (
+    <View style={toolbarStyles.row}>
+      <View style={toolbarStyles.spacer} />
+      {columns.map((cols) => (
+        <TouchableOpacity
+          key={cols}
           style={[
-            indicatorStyles.tabLabel,
-            mode === 'filters' && indicatorStyles.tabLabelActive,
+            toolbarStyles.iconButton,
+            numColumns === cols && toolbarStyles.iconButtonActive,
           ]}
+          onPress={() => onColumnChange(cols)}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityLabel={`${cols} column gallery`}
         >
-          FILTERS
-        </Text>
+          <Feather
+            name={icons[cols]}
+            size={18}
+            color={numColumns === cols ? colors.text.inverse : colors.text.secondary}
+          />
+        </TouchableOpacity>
+      ))}
+      <TouchableOpacity
+        style={toolbarStyles.iconButton}
+        onPress={onOpenFilters}
+        activeOpacity={0.75}
+        accessibilityRole="button"
+        accessibilityLabel="Filter styles"
+      >
+        <Feather name="sliders" size={18} color={colors.text.secondary} />
       </TouchableOpacity>
     </View>
   );
 }
 
-const indicatorStyles = StyleSheet.create({
+const toolbarStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    borderBottomWidth: getLineThickness('base'),
-    borderBottomColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     backgroundColor: colors.background,
   },
-  tab: {
+  spacer: {
     flex: 1,
-    paddingVertical: spacing.xs,
+  },
+  iconButton: {
+    width: spacing.xl + spacing.xs,
+    height: spacing.xl + spacing.xs,
     alignItems: 'center',
-    borderBottomWidth: 3,
-    borderBottomColor: 'transparent',
+    justifyContent: 'center',
+    borderRadius: borderRadius.sm,
+    borderWidth: getLineThickness('base'),
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  tabActive: {
-    borderBottomColor: colors.primary,
-    backgroundColor: colors.surfaceMuted,
+  iconButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    ...shadows.soft,
   },
-  tabLabel: {
+});
+
+// ============================================
+// FILTER SECTION
+// ============================================
+
+interface FilterSectionProps {
+  question: FilterQuestion;
+  activeLabel: string;
+  onToggle: (questionId: string, optionLabel: string) => void;
+}
+
+const FilterSection = React.memo(function FilterSection({
+  question,
+  activeLabel,
+  onToggle,
+}: FilterSectionProps) {
+  return (
+    <View style={filterStyles.group}>
+      <Text style={filterStyles.groupTitle}>{question.title}</Text>
+      <View style={filterStyles.chipGrid}>
+        {question.options.map((opt) => {
+          const isActive = activeLabel === opt.label;
+          return (
+            <TouchableOpacity
+              key={opt.label}
+              style={[filterStyles.chip, isActive && filterStyles.chipActive]}
+              onPress={() => onToggle(question.id, opt.label)}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[filterStyles.chipText, isActive && filterStyles.chipTextActive]}
+                numberOfLines={2}
+              >
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+});
+
+const filterStyles = StyleSheet.create({
+  group: {
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  groupTitle: {
     ...typography.overline,
-    color: colors.text.muted,
-    fontSize: 11,
+    color: colors.text.secondary,
+    marginBottom: spacing.sm,
   },
-  tabLabelActive: {
-    color: colors.text.primary,
+  chipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  chip: {
+    width: '48%',
+    minHeight: CHIP_MIN_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    borderWidth: getLineThickness('base'),
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    ...shadows.soft,
+  },
+  chipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chipText: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  chipTextActive: {
+    color: colors.text.inverse,
   },
 });
 
@@ -152,7 +248,7 @@ const indicatorStyles = StyleSheet.create({
 function StyleSelectorContent() {
   const { width } = useWindowDimensions();
   const router = useRouter();
-  const scrollRef = useRef<ScrollView>(null);
+  const [numColumns, setNumColumns] = useState<1 | 2 | 3>(2);
 
   const {
     filters,
@@ -168,38 +264,28 @@ function StyleSelectorContent() {
   } = useStyleSelector();
 
   const selectedId = selectedCollage?.collageId ?? null;
-  const activeFilterCount = Object.values(filters).filter(v => v !== '').length;
+  const activeFilterCount = Object.values(filters).filter((v) => v !== '').length;
 
-  // Mark card IN_PROGRESS when screen mounts
+  const galleryPadding = spacing.sm * 2;
+  const columnGap = spacing.sm;
+  const itemWidth = useMemo(
+    () => (width - galleryPadding - columnGap * (numColumns - 1)) / numColumns,
+    [width, numColumns, galleryPadding, columnGap],
+  );
+  const itemHeight = itemWidth / COLLAGE_ASPECT_RATIO;
+  const rowHeight = itemHeight + columnGap;
+
   useEffect(() => {
     stageCallbacks.markInProgress('style-selector');
   }, []);
 
-  // ── Mode handlers ─────────────────────────────────────────────────
-
-  const handleModeSelect = useCallback((newMode: 'gallery' | 'filters') => {
-    setMode(newMode);
-    scrollRef.current?.scrollTo({
-      x: newMode === 'gallery' ? 0 : width,
-      animated: true,
-    });
-  }, [setMode, width]);
-
-  const handleScrollEnd = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const pageIndex = Math.round(
-        event.nativeEvent.contentOffset.x / width,
-      );
-      setMode(pageIndex === 0 ? 'gallery' : 'filters');
-    },
-    [setMode, width],
-  );
-
-  // ── Navigation ───────────────────────────────────────────────────
-
   const handleBack = useCallback(() => {
+    if (mode === 'filters') {
+      setMode('gallery');
+      return;
+    }
     router.back();
-  }, [router]);
+  }, [mode, router, setMode]);
 
   const handleContinue = useCallback(async () => {
     const ok = await confirmSelection();
@@ -219,14 +305,62 @@ function StyleSelectorContent() {
     clearFilters();
   }, [clearFilters]);
 
-  // ── Gallery render helpers ────────────────────────────────────────
-
-  const ItemSeparator = useCallback(
-    () => <View style={styles.rowSeparator} />,
-    [],
+  const getItemLayout = useCallback(
+    (_data: ArrayLike<number> | null | undefined, index: number) => {
+      const row = Math.floor(index / numColumns);
+      return {
+        length: rowHeight,
+        offset: rowHeight * row,
+        index,
+      };
+    },
+    [numColumns, rowHeight],
   );
 
-  // ── Render ───────────────────────────────────────────────────────
+  const renderGalleryItem: ListRenderItem<number> = useCallback(
+    ({ item: id }) => (
+      <GalleryItem
+        id={id}
+        selectedId={selectedId}
+        itemWidth={itemWidth}
+        onSelect={selectCollage}
+      />
+    ),
+    [selectedId, itemWidth, selectCollage],
+  );
+
+  const renderFilterSection: ListRenderItem<FilterQuestion> = useCallback(
+    ({ item: question }) => (
+      <FilterSection
+        question={question}
+        activeLabel={filters[question.id] ?? ''}
+        onToggle={toggleFilter}
+      />
+    ),
+    [filters, toggleFilter],
+  );
+
+  const filterListHeader = useMemo(
+    () => (
+      <View style={styles.filterHeaderBlock}>
+        <View style={styles.sheetHandle} />
+        <View style={styles.filterPageHeader}>
+          <Text style={styles.filterPanelTitle}>FILTER STYLES</Text>
+          {activeFilterCount > 0 && (
+            <View style={styles.activeBadge}>
+              <Text style={styles.activeBadgeText}>{activeFilterCount}</Text>
+            </View>
+          )}
+        </View>
+        {activeFilterCount > 0 && (
+          <TouchableOpacity onPress={handleClearFilters} style={styles.clearAllBtn}>
+            <Text style={styles.clearAllText}>CLEAR ALL</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    ),
+    [activeFilterCount, handleClearFilters],
+  );
 
   return (
     <ScreenLayout
@@ -240,106 +374,55 @@ function StyleSelectorContent() {
     >
       <Stack.Screen options={{ headerShown: false }} />
 
-      <ModeIndicator mode={mode} onSelect={handleModeSelect} />
-
-      <View style={styles.container}>
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          pagingEnabled
-          decelerationRate="fast"
-          scrollEventThrottle={16}
-          onMomentumScrollEnd={handleScrollEnd}
-          showsHorizontalScrollIndicator={false}
-          style={styles.pagerContainer}
-          contentContainerStyle={{ width: width * 2 }}
-        >
-          {/* LEFT PAGE: GALLERY */}
-          <View style={[styles.pageContainer, { width }]}>
-            <FlatList
-              data={filteredIds}
-              keyExtractor={(id) => String(id)}
-              renderItem={({ item: id }) => (
-                <GalleryItem id={id} selectedId={selectedId} onSelect={selectCollage} />
-              )}
-              numColumns={2}
-              columnWrapperStyle={styles.columnWrapper}
-              ItemSeparatorComponent={ItemSeparator}
-              contentContainerStyle={styles.galleryContent}
-              showsVerticalScrollIndicator={false}
-              removeClippedSubviews={true}
-              initialNumToRender={INITIAL_RENDER_COUNT}
-              maxToRenderPerBatch={MAX_RENDER_BATCH}
-              windowSize={8}
-              updateCellsBatchingPeriod={50}
-              scrollEventThrottle={16}
-              ListEmptyComponent={
-                isLoading ? null : (
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyText}>No collages match these filters.</Text>
-                  </View>
-                )
-              }
-            />
-          </View>
-
-          {/* RIGHT PAGE: FILTERS */}
-          <View style={[styles.pageContainer, { width }]}>
-            <View style={styles.filterPageContent}>
-              <View style={styles.filterPageHeader}>
-                <Text style={styles.filterPanelTitle}>FILTER</Text>
-                {activeFilterCount > 0 && (
-                  <View style={styles.activeBadge}>
-                    <Text style={styles.activeBadgeText}>{activeFilterCount}</Text>
-                  </View>
-                )}
-              </View>
-
-              {activeFilterCount > 0 && (
-                <TouchableOpacity onPress={handleClearFilters} style={styles.clearAllBtn}>
-                  <Text style={styles.clearAllText}>CLEAR</Text>
-                </TouchableOpacity>
-              )}
-
-              <ScrollView
-                style={styles.filtersScroll}
-                showsVerticalScrollIndicator={false}
-                scrollEventThrottle={16}
-                decelerationRate={0.92}
-              >
-                {styleMatcherData.map(q => (
-                  <View key={q.id} style={styles.filterGroup}>
-                    <Text style={styles.filterGroupTitle}>{q.title}</Text>
-                    <View style={styles.filterOptions}>
-                      {q.options.map(opt => {
-                        const isActive = filters[q.id] === opt.label;
-                        return (
-                          <TouchableOpacity
-                            key={opt.label}
-                            style={[styles.filterOption, isActive && styles.filterOptionActive]}
-                            onPress={() => toggleFilter(q.id, opt.label)}
-                          >
-                            <Text
-                              style={[
-                                styles.filterOptionText,
-                                isActive && styles.filterOptionTextActive,
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {opt.label}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-                ))}
-                <View style={styles.filterFooterPadding} />
-              </ScrollView>
-            </View>
-          </View>
-        </ScrollView>
-      </View>
+      {mode === 'gallery' ? (
+        <>
+          <GalleryToolbar
+            numColumns={numColumns}
+            onColumnChange={setNumColumns}
+            onOpenFilters={() => setMode('filters')}
+          />
+          <FlatList
+            key={String(numColumns)}
+            data={filteredIds}
+            keyExtractor={(id) => String(id)}
+            renderItem={renderGalleryItem}
+            numColumns={numColumns}
+            columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
+            contentContainerStyle={styles.galleryContent}
+            showsVerticalScrollIndicator={false}
+            removeClippedSubviews
+            initialNumToRender={INITIAL_RENDER_COUNT}
+            maxToRenderPerBatch={MAX_RENDER_BATCH}
+            windowSize={3}
+            updateCellsBatchingPeriod={50}
+            getItemLayout={getItemLayout}
+            scrollEventThrottle={16}
+            ListEmptyComponent={
+              isLoading ? null : (
+                <View style={styles.emptyState}>
+                  <Feather name="image" size={40} color={colors.text.secondary} />
+                  <Text style={styles.emptyText}>No collages match these filters.</Text>
+                </View>
+              )
+            }
+          />
+        </>
+      ) : (
+        <View style={styles.filterPage}>
+          <FlatList
+            data={styleMatcherData}
+            keyExtractor={(q) => q.id}
+            renderItem={renderFilterSection}
+            ListHeaderComponent={filterListHeader}
+            contentContainerStyle={styles.filterListContent}
+            showsVerticalScrollIndicator={false}
+            removeClippedSubviews
+            initialNumToRender={4}
+            maxToRenderPerBatch={4}
+            windowSize={5}
+          />
+        </View>
+      )}
     </ScreenLayout>
   );
 }
@@ -363,33 +446,15 @@ export default function StyleSelectorIndexScreen() {
 // ============================================
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-
-  // PAGER
-  pagerContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  pageContainer: {
-    flex: 1,
-  },
-
-  // GALLERY
   galleryContent: {
-    padding: spacing.md,
+    padding: spacing.sm,
+    backgroundColor: colors.background,
   },
   columnWrapper: {
-    justifyContent: 'space-between',
-    gap: CARD_GAP,
-  },
-  rowSeparator: {
-    height: CARD_GAP,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
   emptyState: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: spacing.xxl,
@@ -401,96 +466,72 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // FILTER PAGE
-  filterPageContent: {
+  filterPage: {
     flex: 1,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.sm,
+    backgroundColor: colors.background,
+  },
+  filterListContent: {
+    paddingBottom: spacing.xxl,
+    backgroundColor: colors.background,
+  },
+  filterHeaderBlock: {
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.background,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: spacing.xxxl,
+    height: spacing.xs,
+    borderRadius: borderRadius.sm,
+    borderWidth: getLineThickness('base'),
+    borderColor: colors.border,
     backgroundColor: colors.surface,
+    marginBottom: spacing.sm,
   },
   filterPageHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: spacing.xs,
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
     borderBottomWidth: getLineThickness('base'),
     borderBottomColor: colors.border,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   filterPanelTitle: {
     ...typography.overline,
-    color: colors.text.primary,
-    fontSize: 9,
+    color: colors.text.secondary,
+    flex: 1,
   },
   activeBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.accentAlt,
+    minWidth: spacing.lg,
+    height: spacing.lg,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: spacing.xs,
   },
   activeBadgeText: {
-    ...typography.overline,
-    color: colors.primary,
-    fontSize: 8,
+    ...typography.caption,
+    color: colors.text.inverse,
+    fontWeight: '700',
   },
   clearAllBtn: {
-    paddingVertical: spacing.xxs,
-    paddingHorizontal: spacing.xs,
-    marginBottom: spacing.xs,
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
     borderRadius: borderRadius.sm,
-    borderWidth: 1,
-    borderColor: colors.borderMuted,
-    backgroundColor: colors.background,
+    borderWidth: getLineThickness('base'),
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    ...shadows.soft,
   },
   clearAllText: {
     ...typography.caption,
     color: colors.text.secondary,
     fontWeight: '700',
-    fontSize: 8,
-  },
-
-  // FILTER GROUPS
-  filtersScroll: {
-    flex: 1,
-  },
-  filterGroup: {
-    marginBottom: spacing.xs,
-  },
-  filterGroupTitle: {
-    ...typography.overline,
-    color: colors.text.secondary,
-    fontSize: 7,
-    marginBottom: spacing.xxs,
-    paddingHorizontal: spacing.xxs,
-  },
-  filterOptions: {
-    gap: spacing.xxs,
-  },
-  filterOption: {
-    paddingVertical: spacing.xxs,
-    paddingHorizontal: spacing.xs,
-    borderRadius: borderRadius.sm,
-    borderWidth: 1,
-    borderColor: colors.borderMuted,
-    backgroundColor: colors.background,
-    marginHorizontal: spacing.xxs,
-  },
-  filterOptionActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterOptionText: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    fontWeight: '500',
-    fontSize: 8,
-  },
-  filterOptionTextActive: {
-    color: colors.text.inverse,
-  },
-  filterFooterPadding: {
-    height: spacing.md,
+    textTransform: 'uppercase',
   },
 });

@@ -3,16 +3,13 @@
  * COLLAGE IMAGE CARD
  * ============================================
  *
- * Renders a single collage thumbnail in the style-selector
- * gallery. Handles local image loading via the static require()
- * map. Shows a selection border + checkmark badge when active.
- *
- * Memoised with React.memo — only re-renders when the selection
- * state for THIS specific id changes.
+ * Renders a single collage thumbnail in the style-selector gallery.
+ * Square source assets use portrait container + cover to avoid letterboxing.
  *
  * @module components/style-selector/CollageImage
  */
 
+import { Feather } from '@expo/vector-icons';
 import React, { memo } from 'react';
 import {
   Image,
@@ -24,27 +21,31 @@ import {
 
 import { collageImages } from '@/constants/collageImages';
 import { getLineThickness } from '@/constants/line';
-import { borderRadius, colors, spacing, typography } from '@/constants/theme';
+import { borderRadius, colors, shadows, spacing, typography } from '@/constants/theme';
+
+/** Portrait slot — square collages crop top/bottom with cover, no side bars */
+export const COLLAGE_ASPECT_RATIO = 3 / 4;
+
+const BADGE_SIZE = spacing.lg;
 
 // ============================================
 // PROPS
 // ============================================
 
 export interface CollageImageProps {
-  /** Numeric collage ID (1–686) */
   id: number;
-  /** Whether this collage is the currently selected one */
   isSelected: boolean;
-  /** Called when the user taps this card */
   onSelect: (id: number) => void;
+  width: number;
 }
 
 // ============================================
 // COMPONENT
 // ============================================
 
-function CollageImageBase({ id, isSelected, onSelect }: CollageImageProps) {
+function CollageImageBase({ id, isSelected, onSelect, width }: CollageImageProps) {
   const source = collageImages[id];
+  const height = width / COLLAGE_ASPECT_RATIO;
 
   return (
     <TouchableOpacity
@@ -52,21 +53,21 @@ function CollageImageBase({ id, isSelected, onSelect }: CollageImageProps) {
       onPress={() => onSelect(id)}
       style={[
         styles.card,
+        { width, height },
         isSelected && styles.cardSelected,
       ]}
     >
       {source ? (
-        <Image source={source} style={styles.image} resizeMode="contain" />
+        <Image source={source} style={styles.image} resizeMode="cover" />
       ) : (
         <View style={styles.imageFallback}>
           <Text style={styles.fallbackText}>{id}</Text>
         </View>
       )}
 
-      {/* Selection badge */}
       {isSelected && (
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>✓</Text>
+          <Feather name="check" size={14} color={colors.text.inverse} />
         </View>
       )}
     </TouchableOpacity>
@@ -81,23 +82,19 @@ export const CollageImage = memo(CollageImageBase);
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
-    aspectRatio: 16 / 9,
     borderRadius: borderRadius.md,
     borderWidth: getLineThickness('base'),
     borderColor: colors.border,
     overflow: 'hidden',
-    backgroundColor: colors.primary,
-    padding: spacing.xs,
+    backgroundColor: colors.surface,
+    ...shadows.soft,
   },
   cardSelected: {
-    borderWidth: 3,
     borderColor: colors.primary,
   },
   image: {
     width: '100%',
     height: '100%',
-    resizeMode: 'contain',
   },
   imageFallback: {
     flex: 1,
@@ -113,19 +110,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: spacing.xs,
     right: spacing.xs,
-    width: 28,
-    height: 28,
-    borderRadius: borderRadius.sm,
+    width: BADGE_SIZE,
+    height: BADGE_SIZE,
+    borderRadius: BADGE_SIZE / 2,
     backgroundColor: colors.primary,
-    borderWidth: getLineThickness('base'),
-    borderColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  badgeText: {
-    ...typography.caption,
-    color: colors.text.inverse,
-    fontWeight: '800',
-    lineHeight: 14,
   },
 });
