@@ -4,7 +4,7 @@
  * ============================================
  *
  * Renders a single collage thumbnail in the style-selector gallery.
- * Square source assets use portrait container + cover to avoid letterboxing.
+ * Square container — equal footprint for every card in the grid.
  *
  * @module components/style-selector/CollageImage
  */
@@ -23,8 +23,7 @@ import { collageImages } from '@/constants/collageImages';
 import { getLineThickness } from '@/constants/line';
 import { borderRadius, colors, shadows, spacing, typography } from '@/constants/theme';
 
-/** Portrait slot — square collages crop top/bottom with cover, no side bars */
-export const COLLAGE_ASPECT_RATIO = 3 / 4;
+export const COLLAGE_ASPECT_RATIO = 1;
 
 const BADGE_SIZE = spacing.lg;
 
@@ -36,29 +35,23 @@ export interface CollageImageProps {
   id: number;
   isSelected: boolean;
   onSelect: (id: number) => void;
-  width: number;
 }
 
 // ============================================
 // COMPONENT
 // ============================================
 
-function CollageImageBase({ id, isSelected, onSelect, width }: CollageImageProps) {
+function CollageImageBase({ id, isSelected, onSelect }: CollageImageProps) {
   const source = collageImages[id];
-  const height = width / COLLAGE_ASPECT_RATIO;
 
   return (
     <TouchableOpacity
       activeOpacity={0.85}
       onPress={() => onSelect(id)}
-      style={[
-        styles.card,
-        { width, height },
-        isSelected && styles.cardSelected,
-      ]}
+      style={[styles.card, isSelected && styles.cardSelected]}
     >
       {source ? (
-        <Image source={source} style={styles.image} resizeMode="cover" />
+        <Image source={source} style={styles.image} resizeMode="contain" />
       ) : (
         <View style={styles.imageFallback}>
           <Text style={styles.fallbackText}>{id}</Text>
@@ -82,6 +75,8 @@ export const CollageImage = memo(CollageImageBase);
 
 const styles = StyleSheet.create({
   card: {
+    width: '100%',
+    aspectRatio: COLLAGE_ASPECT_RATIO,
     borderRadius: borderRadius.md,
     borderWidth: getLineThickness('base'),
     borderColor: colors.border,
@@ -100,7 +95,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surface,
   },
   fallbackText: {
     ...typography.caption,

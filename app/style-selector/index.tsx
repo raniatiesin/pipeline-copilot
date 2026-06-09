@@ -24,6 +24,8 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 
 import {
   COLLAGE_ASPECT_RATIO,
@@ -53,20 +55,17 @@ const CHIP_MIN_HEIGHT = spacing.xl + spacing.xs;
 interface GalleryItemProps {
   id: number;
   selectedId: number | null;
-  itemWidth: number;
   onSelect: (id: number) => void;
 }
 
 const GalleryItem = React.memo(function GalleryItem({
   id,
   selectedId,
-  itemWidth,
   onSelect,
 }: GalleryItemProps) {
   return (
     <CollageImage
       id={id}
-      width={itemWidth}
       isSelected={selectedId === id}
       onSelect={onSelect}
     />
@@ -275,6 +274,23 @@ function StyleSelectorContent() {
   const itemHeight = itemWidth / COLLAGE_ASPECT_RATIO;
   const rowHeight = itemHeight + columnGap;
 
+  const navigateBack = useCallback(() => {
+    router.back();
+  }, [router]);
+
+  const swipeBackGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX([20, 999])
+        .failOffsetY([-15, 15])
+        .onEnd((event) => {
+          if (event.translationX > 60) {
+            runOnJS(navigateBack)();
+          }
+        }),
+    [navigateBack],
+  );
+
   useEffect(() => {
     stageCallbacks.markInProgress('style-selector');
   }, []);
@@ -322,11 +338,10 @@ function StyleSelectorContent() {
       <GalleryItem
         id={id}
         selectedId={selectedId}
-        itemWidth={itemWidth}
         onSelect={selectCollage}
       />
     ),
-    [selectedId, itemWidth, selectCollage],
+    [selectedId, selectCollage],
   );
 
   const renderFilterSection: ListRenderItem<FilterQuestion> = useCallback(
@@ -347,16 +362,22 @@ function StyleSelectorContent() {
         <View style={styles.filterPageHeader}>
           <Text style={styles.filterPanelTitle}>FILTER STYLES</Text>
           {activeFilterCount > 0 && (
-            <View style={styles.activeBadge}>
-              <Text style={styles.activeBadgeText}>{activeFilterCount}</Text>
-            </View>
+            <>
+              <View style={styles.activeBadge}>
+                <Text style={styles.activeBadgeText}>{activeFilterCount}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={handleClearFilters}
+                style={styles.clearAllBtn}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Clear all filters"
+              >
+                <Text style={styles.clearAllText}>CLEAR ALL</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
-        {activeFilterCount > 0 && (
-          <TouchableOpacity onPress={handleClearFilters} style={styles.clearAllBtn}>
-            <Text style={styles.clearAllText}>CLEAR ALL</Text>
-          </TouchableOpacity>
-        )}
       </View>
     ),
     [activeFilterCount, handleClearFilters],
@@ -374,55 +395,59 @@ function StyleSelectorContent() {
     >
       <Stack.Screen options={{ headerShown: false }} />
 
-      {mode === 'gallery' ? (
-        <>
-          <GalleryToolbar
-            numColumns={numColumns}
-            onColumnChange={setNumColumns}
-            onOpenFilters={() => setMode('filters')}
-          />
-          <FlatList
-            key={String(numColumns)}
-            data={filteredIds}
-            keyExtractor={(id) => String(id)}
-            renderItem={renderGalleryItem}
-            numColumns={numColumns}
-            columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
-            contentContainerStyle={styles.galleryContent}
-            showsVerticalScrollIndicator={false}
-            removeClippedSubviews
-            initialNumToRender={INITIAL_RENDER_COUNT}
-            maxToRenderPerBatch={MAX_RENDER_BATCH}
-            windowSize={3}
-            updateCellsBatchingPeriod={50}
-            getItemLayout={getItemLayout}
-            scrollEventThrottle={16}
-            ListEmptyComponent={
-              isLoading ? null : (
-                <View style={styles.emptyState}>
-                  <Feather name="image" size={40} color={colors.text.secondary} />
-                  <Text style={styles.emptyText}>No collages match these filters.</Text>
-                </View>
-              )
-            }
-          />
-        </>
-      ) : (
-        <View style={styles.filterPage}>
-          <FlatList
-            data={styleMatcherData}
-            keyExtractor={(q) => q.id}
-            renderItem={renderFilterSection}
-            ListHeaderComponent={filterListHeader}
-            contentContainerStyle={styles.filterListContent}
-            showsVerticalScrollIndicator={false}
-            removeClippedSubviews
-            initialNumToRender={4}
-            maxToRenderPerBatch={4}
-            windowSize={5}
-          />
+      <GestureDetector gesture={swipeBackGesture}>
+        <View style={styles.gestureRoot}>
+          {mode === 'gallery' ? (
+            <>
+              <GalleryToolbar
+                numColumns={numColumns}
+                onColumnChange={setNumColumns}
+                onOpenFilters={() => setMode('filters')}
+              />
+              <FlatList
+                key={String(numColumns)}
+                data={filteredIds}
+                keyExtractor={(id) => String(id)}
+                renderItem={renderGalleryItem}
+                numColumns={numColumns}
+                columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
+                contentContainerStyle={styles.galleryContent}
+                showsVerticalScrollIndicator={false}
+                removeClippedSubviews
+                initialNumToRender={INITIAL_RENDER_COUNT}
+                maxToRenderPerBatch={MAX_RENDER_BATCH}
+                windowSize={3}
+                updateCellsBatchingPeriod={50}
+                getItemLayout={getItemLayout}
+                scrollEventThrottle={16}
+                ListEmptyComponent={
+                  isLoading ? null : (
+                    <View style={styles.emptyState}>
+                      <Feather name="image" size={40} color={colors.text.secondary} />
+                      <Text style={styles.emptyText}>No collages match these filters.</Text>
+                    </View>
+                  )
+                }
+              />
+            </>
+          ) : (
+            <View style={styles.filterPage}>
+              <FlatList
+                data={styleMatcherData}
+                keyExtractor={(q) => q.id}
+                renderItem={renderFilterSection}
+                ListHeaderComponent={filterListHeader}
+                contentContainerStyle={styles.filterListContent}
+                showsVerticalScrollIndicator={false}
+                removeClippedSubviews
+                initialNumToRender={4}
+                maxToRenderPerBatch={4}
+                windowSize={5}
+              />
+            </View>
+          )}
         </View>
-      )}
+      </GestureDetector>
     </ScreenLayout>
   );
 }
@@ -446,6 +471,10 @@ export default function StyleSelectorIndexScreen() {
 // ============================================
 
 const styles = StyleSheet.create({
+  gestureRoot: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   galleryContent: {
     padding: spacing.sm,
     backgroundColor: colors.background,
@@ -518,19 +547,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   clearAllBtn: {
-    alignSelf: 'flex-start',
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
-    marginBottom: spacing.sm,
     borderRadius: borderRadius.sm,
     borderWidth: getLineThickness('base'),
-    borderColor: colors.border,
+    borderColor: colors.error,
     backgroundColor: colors.surface,
-    ...shadows.soft,
   },
   clearAllText: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: colors.error,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
