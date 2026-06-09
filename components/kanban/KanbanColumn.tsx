@@ -4,8 +4,7 @@
  * ============================================
  *
  * Single column for items of a specific status.
- * Floating pinned pill at the top; cards scroll behind it.
- * Empty state shows a dashed border placeholder box.
+ * Colored status pill pinned at the top; cards scroll below.
  *
  * @module components/kanban/KanbanColumn
  */
@@ -19,7 +18,8 @@ import {
 } from 'react-native';
 
 import { KANBAN_STATUS, KANBAN_STATUS_CONFIG } from '@/constants/kanbanStatus';
-import { kanbanColors, kanbanLayout } from '@/constants/kanbanTheme';
+import { kanbanColors } from '@/constants/kanbanTheme';
+import { getLineThickness } from '@/constants/line';
 import { pillSizes } from '@/constants/pills';
 import { borderRadius, colors, spacing, typography } from '@/constants/theme';
 import type { KanbanColumnProps, KanbanItem } from '@/types/kanban';
@@ -28,19 +28,13 @@ import { AddProjectButton } from './AddProjectButton';
 import { KanbanCard } from './KanbanCard';
 
 // ============================================
-// PILL HEIGHT (for scroll top-padding)
-// ============================================
-
-const PILL_TOTAL_HEIGHT = pillSizes.big.minHeight + spacing.sm * 2;
-
-// ============================================
-// COLUMN TAB (FLOATING PILL)
+// COLUMN TAB (COLORED PILL)
 // ============================================
 
 interface ColumnTabProps {
   label: string;
   count: number;
-  colorSet: typeof kanbanColors[keyof typeof kanbanColors];
+  colorSet: (typeof kanbanColors)[keyof typeof kanbanColors];
 }
 
 function ColumnTab({ label, count, colorSet }: ColumnTabProps) {
@@ -57,7 +51,7 @@ function ColumnTab({ label, count, colorSet }: ColumnTabProps) {
 }
 
 // ============================================
-// EMPTY STATE — DASHED BORDER BOX
+// EMPTY STATE
 // ============================================
 
 function EmptyState() {
@@ -84,15 +78,14 @@ export function KanbanColumn({
 }: KanbanColumnProps) {
   const config = KANBAN_STATUS_CONFIG[status];
   const colorSet = kanbanColors[config.colorKey];
-
-  const cardWidth = columnWidth - kanbanLayout.columnPaddingH * 2;
+  const cardWidth = columnWidth - spacing.sm * 2;
 
   const renderCard = (item: KanbanItem) => (
     <View key={item.id} style={styles.cardWrapper}>
       <KanbanCard
         item={item}
         onPress={onCardPress}
-        cardWidth={cardWidth - spacing.sm * 2}
+        cardWidth={cardWidth}
       />
     </View>
   );
@@ -101,16 +94,15 @@ export function KanbanColumn({
 
   return (
     <View style={[styles.columnWrapper, { width: columnWidth }]}>
-      {/* Sticky pinned pill at top */}
       <ColumnTab label={config.label} count={count} colorSet={colorSet} />
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={true}
+        showsVerticalScrollIndicator
         indicatorStyle="black"
-        decelerationRate={0.92}
-        bounces={true}
+        decelerationRate="fast"
+        bounces
         overScrollMode="always"
         scrollEventThrottle={16}
       >
@@ -123,7 +115,7 @@ export function KanbanColumn({
             </View>
 
             {showAddButton && (
-              <AddProjectButton onPress={onAddProject!} />
+              <AddProjectButton onPress={onAddProject!} width={cardWidth} />
             )}
           </>
         )}
@@ -140,17 +132,12 @@ const styles = StyleSheet.create({
   columnWrapper: {
     flex: 1,
     backgroundColor: colors.background,
-    borderRightWidth: getLineThickness('base'),
-    borderRightColor: colors.border,
-    paddingVertical: kanbanLayout.columnPaddingV,
-    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
     alignItems: 'center',
   },
   tabContainer: {
-    position: 'relative',
     alignItems: 'center',
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
     backgroundColor: colors.background,
     zIndex: 10,
   },
@@ -178,7 +165,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xxs,
-    borderWidth: 2,
+    borderWidth: getLineThickness('thin'),
     borderColor: colors.border,
   },
   countText: {
@@ -190,35 +177,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingTop: spacing.sm,
     paddingBottom: spacing.lg,
-    paddingHorizontal: 0,
     flexGrow: 1,
     alignItems: 'center',
+    width: '100%',
   },
   cardsGrid: {
     gap: spacing.sm,
     width: '100%',
     alignItems: 'center',
-    paddingHorizontal: kanbanLayout.columnPaddingH,
   },
   cardWrapper: {
-    width: '100%',
     alignItems: 'center',
   },
-  // Empty state — dashed border box
   emptyState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.xxl,
-    paddingHorizontal: spacing.md,
   },
   emptyDashedBox: {
     width: '100%',
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: colors.borderMuted,
+    borderColor: colors.border,
     borderRadius: borderRadius.md,
     paddingVertical: spacing.xxl,
     paddingHorizontal: spacing.lg,
@@ -228,6 +210,5 @@ const styles = StyleSheet.create({
   emptyText: {
     ...typography.caption,
     color: colors.text.secondary,
-    fontWeight: '500',
   },
 });

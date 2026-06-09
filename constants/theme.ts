@@ -202,7 +202,7 @@ export const typography = {
     ...smallText,
     fontWeight: '600' as const,
     letterSpacing: 0.4,
-    color: colors.text.muted,
+    color: colors.text.secondary,
   },
   /** Overline labels - 12px, bold, uppercase */
   overline: {

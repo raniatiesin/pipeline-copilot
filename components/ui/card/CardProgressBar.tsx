@@ -12,7 +12,7 @@
 import React, { memo, useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors } from '@/constants/theme';
+import { borderRadius, colors } from '@/constants/theme';
 import { CARD_SPRING_SOFT } from './useCardAnimation';
 
 // ============================================
@@ -39,8 +39,8 @@ export interface CardProgressBarProps {
 export const CardProgressBar = memo(function CardProgressBar({
   progress,
   color = colors.accent,
-  trackColor = colors.surfaceMuted,
-  height = 6,
+  trackColor = colors.border,
+  height = 4,
   style,
 }: CardProgressBarProps) {
   const widthPercent = useRef(new Animated.Value(0)).current;
@@ -56,7 +56,7 @@ export const CardProgressBar = memo(function CardProgressBar({
     <View
       style={[
         styles.track,
-        { height, backgroundColor: trackColor, borderRadius: height / 2 },
+        { height, backgroundColor: trackColor, borderRadius: borderRadius.sm },
         style,
       ]}
     >
@@ -65,7 +65,7 @@ export const CardProgressBar = memo(function CardProgressBar({
           styles.fill,
           {
             backgroundColor: color,
-            borderRadius: height / 2,
+            borderRadius: borderRadius.sm,
             width: widthPercent.interpolate({
               inputRange: [0, 100],
               outputRange: ['0%', '100%'],
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   track: {
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    borderColor: colors.border,
   },
   fill: {
     height: '100%',

@@ -10,7 +10,14 @@
  * @module constants/kanbanTheme
  */
 
+import type { KanbanStatus } from '../types/kanban';
 import { colors } from './theme';
+
+/** In Review accent — purple, not in core palette */
+export const IN_REVIEW_ACCENT = '#7c3aed';
+
+/** Letterbox fill for collage thumbnails */
+export const COLLAGE_LETTERBOX = colors.primary;
 
 // ============================================
 // KANBAN STATUS COLORS
@@ -60,8 +67,8 @@ export const kanbanColors = {
     backgroundMuted: '#e9d5ff',
     border: colors.border,
     text: colors.text.primary,
-    accent: '#a78bfa', // purple
-    pill: '#c4b5fd',
+    accent: IN_REVIEW_ACCENT,
+    pill: IN_REVIEW_ACCENT,
   },
   /** Done - Blue/Sky Blue (brand primary) */
   blue: {
@@ -125,11 +132,47 @@ export const kanbanLayout = {
   cardPadding: 14,
   /** Column peek — 0 = full-width columns (matches arc-assembler aesthetic) */
   columnPeek: 0,
-  /** Column gap — 0 = seamless paging between full-width columns */
-  columnGap: 0,
+  /** Gap between horizontally snapped columns */
+  columnGap: 12,
   /** Horizontal padding inside each column */
-  columnPaddingH: 24,
+  columnPaddingH: 12,
 } as const;
+
+/**
+ * Left accent bar color per card status.
+ * TODO → transparent (no bar); DONE uses accent at reduced opacity on the card wrapper.
+ */
+export function getStatusAccentColor(status: KanbanStatus): string | null {
+  switch (status) {
+    case 'up-next':
+      return colors.accentAlt;
+    case 'in-progress':
+      return colors.secondary;
+    case 'in-review':
+      return IN_REVIEW_ACCENT;
+    case 'done':
+      return colors.accent;
+    default:
+      return null;
+  }
+}
+
+export function getStatusLabel(status: KanbanStatus): string {
+  switch (status) {
+    case 'todo':
+      return 'TO DO';
+    case 'up-next':
+      return 'UP NEXT';
+    case 'in-progress':
+      return 'IN PROGRESS';
+    case 'in-review':
+      return 'IN REVIEW';
+    case 'done':
+      return 'DONE';
+    default:
+      return 'UNKNOWN';
+  }
+}
 
 // ============================================
 // ANIMATION CONSTANTS

@@ -3,9 +3,8 @@
  * KANBAN BOARD COMPONENT
  * ============================================
  *
- * Horizontally scrollable Kanban board with 88%-width columns.
- * Each column peeks at ~12% so the user knows there is more to swipe.
- * Snaps cleanly to column boundaries via snapToInterval.
+ * Horizontally scrollable Kanban board with 88%-width columns,
+ * each snapped and centered in the viewport.
  *
  * @module components/kanban/KanbanBoard
  */
@@ -23,6 +22,7 @@ import {
 
 import { hapticTriggers } from '@/constants/haptics';
 import { KANBAN_STATUS, KANBAN_STATUS_ORDER } from '@/constants/kanbanStatus';
+import { kanbanLayout } from '@/constants/kanbanTheme';
 import { colors, spacing } from '@/constants/theme';
 import { useKanban } from '@/hooks/useKanban';
 import type { KanbanBoardProps, KanbanItem, KanbanStatus } from '@/types/kanban';
@@ -42,8 +42,10 @@ export function KanbanBoard({
   const { width } = useWindowDimensions();
   const kanban = useKanban();
 
-  // 88% column width — next column peeks at ~12%
   const columnWidth = width * 0.88;
+  const columnGap = kanbanLayout.columnGap;
+  const snapInterval = columnWidth + columnGap;
+  const sideInset = (width - columnWidth) / 2;
 
   const counts = useMemo(() => {
     const result = {} as Record<KanbanStatus, number>;
@@ -66,7 +68,7 @@ export function KanbanBoard({
   const handleScrollEnd = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetX = event.nativeEvent.contentOffset.x;
-      const pageIndex = Math.round(offsetX / columnWidth);
+      const pageIndex = Math.round(offsetX / snapInterval);
       const clampedIndex = Math.max(0, Math.min(pageIndex, KANBAN_STATUS_ORDER.length - 1));
 
       if (Platform.OS !== 'web' && clampedIndex !== previousPageRef.current) {
@@ -77,38 +79,46 @@ export function KanbanBoard({
       kanban.setPageIndex(clampedIndex);
       onPageChange?.(clampedIndex);
     },
-    [columnWidth, kanban, onPageChange],
+    [snapInterval, kanban, onPageChange],
   );
 
-  // Calculate initial scroll offset to start on IN_PROGRESS (index 2)
   const inProgressIndex = KANBAN_STATUS_ORDER.indexOf(KANBAN_STATUS.IN_PROGRESS);
-  const initialOffset = inProgressIndex * columnWidth;
+  const initialOffset = inProgressIndex * snapInterval;
 
   return (
     <View style={styles.container}>
       <ScrollView
         horizontal
-        decelerationRate={0.92}
-        snapToInterval={columnWidth}
+        decelerationRate="fast"
+        snapToInterval={snapInterval}
         snapToAlignment="start"
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleScrollEnd}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingHorizontal: sideInset },
+        ]}
         style={styles.scrollView}
         scrollEventThrottle={16}
-        scrollToIndex={{ index: inProgressIndex, animated: false }}
         contentOffset={{ x: initialOffset, y: 0 }}
       >
-        {KANBAN_STATUS_ORDER.map((status) => (
-          <KanbanColumn
+        {KANBAN_STATUS_ORDER.map((status, index) => (
+          <View
             key={status}
-            status={status}
-            items={itemsByStatus[status] || []}
-            count={counts[status] || 0}
-            onCardPress={onItemPress}
-            columnWidth={columnWidth}
-            onAddProject={status === KANBAN_STATUS.TODO ? onAddProject : undefined}
-          />
+            style={[
+              { width: columnWidth },
+              index < KANBAN_STATUS_ORDER.length - 1 && { marginRight: columnGap },
+            ]}
+          >
+            <KanbanColumn
+              status={status}
+              items={itemsByStatus[status] || []}
+              count={counts[status] || 0}
+              onCardPress={onItemPress}
+              columnWidth={columnWidth}
+              onAddProject={status === KANBAN_STATUS.TODO ? onAddProject : undefined}
+            />
+          </View>
         ))}
       </ScrollView>
     </View>
@@ -123,13 +133,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    justifyContent: 'center',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 24,
-    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.lg,
+    alignItems: 'stretch',
   },
 });

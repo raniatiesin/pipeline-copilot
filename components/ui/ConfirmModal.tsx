@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   // ── Backdrop ─────────────────────────────────────────────────────
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(20, 22, 20, 0.72)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
 
   // ── Centring wrapper ─────────────────────────────────────────────
@@ -137,11 +137,12 @@ const styles = StyleSheet.create({
   // ── Card ─────────────────────────────────────────────────────────
   card: {
     width: '100%',
+    maxWidth: 320,
     backgroundColor: colors.surface,
     borderWidth: 3,
     borderColor: colors.border,
     borderRadius: borderRadius.lg,
-    padding: spacing.xl,
+    padding: spacing.lg,
     ...shadows.hard,
   },
   title: {
@@ -165,25 +166,26 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: spacing.md,
-    borderWidth: 2,
+    height: 48,
+    borderWidth: 3,
     borderColor: colors.border,
     borderRadius: borderRadius.md,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.surface,
   },
   cancelText: {
     ...typography.button,
-    color: colors.text.secondary,
-    fontWeight: '700',
+    color: colors.text.primary,
   },
   confirmButton: {
     flex: 1,
-    paddingVertical: spacing.md,
-    borderWidth: 2,
+    height: 48,
+    borderWidth: 3,
     borderColor: colors.border,
     borderRadius: borderRadius.md,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.primary,
     ...shadows.hard,
   },

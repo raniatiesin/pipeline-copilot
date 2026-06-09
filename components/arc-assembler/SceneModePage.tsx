@@ -490,7 +490,8 @@ const styles = StyleSheet.create({
     left: spacing.md,
     right: spacing.md,
     ...typography.body,
-    color: colors.text.muted,
+    color: colors.text.secondary,
+    fontStyle: 'italic',
     lineHeight: 24,
   },
 
@@ -527,7 +528,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.sm,
+    borderRadius: borderRadius.md,
     borderWidth: getLineThickness('base'),
     borderColor: colors.border,
     ...shadows.medium,

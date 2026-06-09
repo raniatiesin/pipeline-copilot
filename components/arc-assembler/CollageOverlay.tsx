@@ -3,14 +3,8 @@
  * COLLAGE OVERLAY
  * ============================================
  *
- * A floating reference button (top-right of its container) that
- * opens the selected style collage as a full-screen image overlay.
- * Available on both Scene Mode and Subject Mode pages.
- *
- * - Tap the button → full-screen modal with collage image
- * - Tap anywhere on the modal → dismiss
- *
- * If no collage is selected (collageId is null), the button is hidden.
+ * Floating reference button that opens the selected style collage
+ * as a full-screen image overlay.
  *
  * @module components/arc-assembler/CollageOverlay
  */
@@ -21,21 +15,19 @@ import {
   Image,
   Modal,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 
 import { collageImages } from '@/constants/collageImages';
 import { getLineThickness } from '@/constants/line';
-import { borderRadius, colors, shadows, spacing, typography } from '@/constants/theme';
+import { borderRadius, colors, shadows, spacing } from '@/constants/theme';
 
 // ============================================
 // TYPES
 // ============================================
 
 export interface CollageOverlayProps {
-  /** Numeric collage ID (1–686). Null = button hidden. */
   collageId: number | null;
 }
 
@@ -55,18 +47,17 @@ function CollageOverlayBase({ collageId }: CollageOverlayProps) {
 
   return (
     <>
-      {/* Floating reference button */}
       <TouchableOpacity
         style={styles.button}
         onPress={open}
         activeOpacity={0.8}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityRole="button"
+        accessibilityLabel="View style collage"
       >
-        <Feather name="image" size={16} color={colors.text.inverse} />
-        <Text style={styles.buttonLabel}>REF</Text>
+        <Feather name="image" size={18} color={colors.text.inverse} />
       </TouchableOpacity>
 
-      {/* Full-screen overlay */}
       <Modal
         visible={visible}
         transparent
@@ -87,15 +78,9 @@ function CollageOverlayBase({ collageId }: CollageOverlayProps) {
             />
           ) : (
             <View style={styles.fallback}>
-              <Feather name="image" size={48} color={colors.text.muted} />
-              <Text style={styles.fallbackText}>COLLAGE #{collageId}</Text>
+              <Feather name="image" size={48} color={colors.text.secondary} />
             </View>
           )}
-
-          {/* Dismiss hint */}
-          <View style={styles.dismissHint}>
-            <Text style={styles.dismissText}>TAP ANYWHERE TO CLOSE</Text>
-          </View>
         </TouchableOpacity>
       </Modal>
     </>
@@ -110,51 +95,28 @@ export const CollageOverlay = memo(CollageOverlayBase);
 
 const styles = StyleSheet.create({
   button: {
-    flexDirection: 'row',
+    width: 44,
+    height: 44,
     alignItems: 'center',
-    gap: spacing.xxs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    justifyContent: 'center',
     backgroundColor: colors.error,
-    borderRadius: borderRadius.sm,
+    borderRadius: borderRadius.md,
     borderWidth: getLineThickness('base'),
-    borderColor: colors.primary,
+    borderColor: colors.border,
     ...shadows.hard,
   },
-  buttonLabel: {
-    ...typography.overline,
-    color: colors.text.inverse,
-    fontSize: 10,
-  },
-
-  // Modal
   backdrop: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   image: {
     width: '100%',
-    height: '90%',
+    height: '100%',
   },
   fallback: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
-  },
-  fallbackText: {
-    ...typography.overline,
-    color: colors.text.muted,
-  },
-  dismissHint: {
-    position: 'absolute',
-    bottom: spacing.xl,
-    alignSelf: 'center',
-  },
-  dismissText: {
-    ...typography.overline,
-    color: colors.text.muted,
-    fontSize: 10,
   },
 });

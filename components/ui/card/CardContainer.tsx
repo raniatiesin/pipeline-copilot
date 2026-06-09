@@ -62,21 +62,20 @@ const variantStyles: Record<CardVariant, ViewStyle> = {
     backgroundColor: colors.surface,
     borderWidth: getLineThickness('base'),
     borderColor: colors.border,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.md,
     ...shadows.soft,
   },
   flush: {
     backgroundColor: colors.surface,
     borderWidth: getLineThickness('base'),
     borderColor: colors.border,
-    borderRadius: borderRadius.lg,
-    // No shadow — sits flat
+    borderRadius: borderRadius.md,
   },
   elevated: {
     backgroundColor: colors.surface,
     borderWidth: getLineThickness('base'),
     borderColor: colors.border,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.md,
     ...shadows.medium,
   },
   dashed: {
