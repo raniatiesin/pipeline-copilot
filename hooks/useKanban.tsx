@@ -4,20 +4,20 @@
  * ============================================
  *
  * Context provider and hook for Kanban board state.
- * Data flows from PowerSync (SQLite, offline-first):
- *   - No projectId → project mode: watchProjects(), one KanbanItem per pipeline row
- *   - projectId given → stage mode: watchProject(id), card_statuses JSON → 4 KanbanItems
+ * Stage card columns are driven by explicit `status` in card_statuses JSON.
  *
  * @module hooks/useKanban
  */
 
 import { KANBAN_STATUS } from '@/constants/kanbanStatus';
-import { MODULE_ORDER } from '@/constants/kanbanTheme';
 import type { CardStatuses, PipelineRow, StageCardStatus } from '@/lib/database';
 import {
     createProject as dbCreateProject,
+    deleteProject as dbDeleteProject,
     updateProject as dbUpdateProject,
     getProjects,
+    kanbanToStoredStatus,
+    resolveKanbanStatus,
     rowToProjectItem,
     rowToStageItems,
     watchProject,
@@ -40,57 +40,17 @@ import React, {
 } from 'react';
 
 // ============================================
-// STATUS DERIVATION HELPERS (pure, stateless)
+// HELPERS
 // ============================================
-
-function deriveStatus(item: KanbanItem, isUnlocked: boolean): KanbanStatus {
-  const progress = item.progress ?? 0;
-  const isApproved = item.isApproved ?? false;
-
-  if (progress === 0) {
-    return isUnlocked ? KANBAN_STATUS.UP_NEXT : KANBAN_STATUS.TODO;
-  }
-  if (progress > 0 && progress < 100) {
-    return KANBAN_STATUS.IN_PROGRESS;
-  }
-  return isApproved ? KANBAN_STATUS.DONE : KANBAN_STATUS.IN_REVIEW;
-}
-
-function isModuleUnlocked(
-  moduleId: string | undefined,
-  items: Record<string, KanbanItem>,
-): boolean {
-  if (!moduleId) return true;
-  const idx = MODULE_ORDER.indexOf(moduleId as typeof MODULE_ORDER[number]);
-  if (idx < 0) return true;
-  if (idx === 0) return true;
-
-  const prevId = MODULE_ORDER[idx - 1];
-  const prev = Object.values(items).find(i => i.moduleId === prevId);
-  return prev ? (prev.progress ?? 0) >= 100 : true;
-}
-
-function applyDerivedStatuses(
-  items: Record<string, KanbanItem>,
-): Record<string, KanbanItem> {
-  const result: Record<string, KanbanItem> = {};
-  for (const key of Object.keys(items)) {
-    const item = items[key];
-    result[key] = { ...item, status: deriveStatus(item, isModuleUnlocked(item.moduleId, items)) };
-  }
-  return result;
-}
 
 function mIdx(moduleId: string | undefined): number {
   if (!moduleId) return -1;
+  const MODULE_ORDER = ['style-selector', 'beat-butcher', 'entity-editor', 'arc-assembler'] as const;
   return MODULE_ORDER.indexOf(moduleId as typeof MODULE_ORDER[number]);
 }
 
-// ============================================
-// CARD STATUSES HELPERS
-// ============================================
-
 const DEFAULT_CARD_STATUS: StageCardStatus = {
+  status: 'TODO',
   progress: 0,
   isApproved: false,
   isOutdated: false,
@@ -100,6 +60,13 @@ const DEFAULT_CARD_STATUS: StageCardStatus = {
 function parseCardStatuses(json: string | null | undefined): CardStatuses {
   if (!json) return {};
   try { return JSON.parse(json) as CardStatuses; } catch { return {}; }
+}
+
+function cardStatus(
+  statuses: CardStatuses,
+  moduleId: string,
+): StageCardStatus {
+  return { ...DEFAULT_CARD_STATUS, ...(statuses[moduleId] ?? {}) };
 }
 
 // ============================================
@@ -128,7 +95,7 @@ export function KanbanProvider({
   const [items, setItems] = useState<Record<string, KanbanItem>>(() => {
     const map: Record<string, KanbanItem> = {};
     initialItems.forEach(item => { map[item.id] = item; });
-    return applyDerivedStatuses(map);
+    return map;
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -148,7 +115,7 @@ export function KanbanProvider({
               const item = rowToProjectItem(row);
               newItems[item.id] = item;
             });
-            setItems(applyDerivedStatuses(newItems));
+            setItems(newItems);
             setIsLoading(false);
           }
         } catch (err) {
@@ -184,7 +151,7 @@ export function KanbanProvider({
           }
         }
 
-        setItems(applyDerivedStatuses(newItems));
+        setItems(newItems);
         setIsLoading(false);
       }
     };
@@ -220,6 +187,14 @@ export function KanbanProvider({
     [items],
   );
 
+  const getModuleStatus = useCallback(
+    (moduleId: string): KanbanStatus | null => {
+      const item = items[moduleId];
+      return item?.status ?? null;
+    },
+    [items],
+  );
+
   // ── Data access ────────────────────────────────────────────────────────────
 
   const getProjectRow = useCallback((id: string): PipelineRow | null => {
@@ -232,6 +207,10 @@ export function KanbanProvider({
     await dbCreateProject(data);
   }, []);
 
+  const deleteProject = useCallback(async (id: string) => {
+    await dbDeleteProject(id);
+  }, []);
+
   const updateProgress = useCallback(async (id: string, progress: number) => {
     if (!projectId) return;
     const rows = rawRowsRef.current;
@@ -239,17 +218,22 @@ export function KanbanProvider({
 
     const statuses = parseCardStatuses(rows[0].card_statuses);
     const clamped = Math.max(0, Math.min(100, progress));
-    const wasInReview = (statuses[id]?.progress ?? 0) === 100 && !statuses[id]?.isApproved;
+    const current = cardStatus(statuses, id);
+    const wasInReview = resolveKanbanStatus(current) === KANBAN_STATUS.IN_REVIEW;
     const isDropping = clamped < 100;
     const srcIdx = mIdx(id);
 
     const next: CardStatuses = { ...statuses };
-    next[id] = { ...(statuses[id] ?? DEFAULT_CARD_STATUS), progress: clamped };
+    next[id] = { ...current, progress: clamped };
 
     if (wasInReview && isDropping && srcIdx >= 0) {
-      (MODULE_ORDER as readonly string[]).forEach((m, i) => {
-        if (i > srcIdx && (next[m]?.progress ?? 0) > 0) {
-          next[m] = { ...(next[m] ?? DEFAULT_CARD_STATUS), isOutdated: true };
+      (['style-selector', 'beat-butcher', 'entity-editor', 'arc-assembler'] as const).forEach((m, i) => {
+        if (i > srcIdx) {
+          const downstream = cardStatus(next, m);
+          const downstreamStatus = resolveKanbanStatus(downstream);
+          if (downstreamStatus !== KANBAN_STATUS.TODO && downstreamStatus !== KANBAN_STATUS.UP_NEXT) {
+            next[m] = { ...downstream, isOutdated: true };
+          }
         }
       });
     }
@@ -263,9 +247,14 @@ export function KanbanProvider({
     if (rows.length === 0) return;
 
     const statuses = parseCardStatuses(rows[0].card_statuses);
+    const current = cardStatus(statuses, id);
     const next: CardStatuses = {
       ...statuses,
-      [id]: { ...(statuses[id] ?? DEFAULT_CARD_STATUS), isApproved: true },
+      [id]: {
+        ...current,
+        status: kanbanToStoredStatus(KANBAN_STATUS.DONE),
+        isApproved: true,
+      },
     };
     await dbUpdateProject(projectId, { card_statuses: JSON.stringify(next) });
   }, [projectId]);
@@ -278,7 +267,7 @@ export function KanbanProvider({
     const statuses = parseCardStatuses(rows[0].card_statuses);
     const next: CardStatuses = {
       ...statuses,
-      [id]: { ...(statuses[id] ?? DEFAULT_CARD_STATUS), quickNote: note },
+      [id]: { ...cardStatus(statuses, id), quickNote: note },
     };
     await dbUpdateProject(projectId, { card_statuses: JSON.stringify(next) });
   }, [projectId]);
@@ -293,20 +282,38 @@ export function KanbanProvider({
     if (rows.length === 0) return;
 
     const statuses = parseCardStatuses(rows[0].card_statuses);
-    const srcIdx = mIdx(moduleId);
     const next: CardStatuses = { ...statuses };
 
     next[moduleId] = {
-      ...(statuses[moduleId] ?? DEFAULT_CARD_STATUS),
-      progress: 100,
+      ...cardStatus(statuses, moduleId),
+      status: kanbanToStoredStatus(KANBAN_STATUS.IN_REVIEW),
       isOutdated: false,
     };
 
-    (MODULE_ORDER as readonly string[]).forEach((m, i) => {
-      if (i > srcIdx && next[m]) {
-        next[m] = { ...next[m], isOutdated: false };
-      }
-    });
+    if (moduleId === 'beat-butcher') {
+      next['entity-editor'] = {
+        ...cardStatus(next, 'entity-editor'),
+        status: kanbanToStoredStatus(KANBAN_STATUS.UP_NEXT),
+        isOutdated: false,
+      };
+    }
+
+    if (moduleId === 'entity-editor') {
+      next['arc-assembler'] = {
+        ...cardStatus(next, 'arc-assembler'),
+        status: kanbanToStoredStatus(KANBAN_STATUS.UP_NEXT),
+        isOutdated: false,
+      };
+    }
+
+    const srcIdx = mIdx(moduleId);
+    if (srcIdx >= 0) {
+      (['style-selector', 'beat-butcher', 'entity-editor', 'arc-assembler'] as const).forEach((m, i) => {
+        if (i > srcIdx && next[m]) {
+          next[m] = { ...cardStatus(next, m), isOutdated: false };
+        }
+      });
+    }
 
     await dbUpdateProject(projectId, { card_statuses: JSON.stringify(next) });
   }, [projectId]);
@@ -317,16 +324,15 @@ export function KanbanProvider({
     if (rows.length === 0) return;
 
     const statuses = parseCardStatuses(rows[0].card_statuses);
-    const current = statuses[moduleId];
+    const current = cardStatus(statuses, moduleId);
 
-    // Only update if not yet started — idempotent guard
-    if ((current?.progress ?? 0) > 0) return;
+    if (resolveKanbanStatus(current) !== KANBAN_STATUS.UP_NEXT) return;
 
     const next: CardStatuses = {
       ...statuses,
       [moduleId]: {
-        ...(current ?? DEFAULT_CARD_STATUS),
-        progress: 10,
+        ...current,
+        status: kanbanToStoredStatus(KANBAN_STATUS.IN_PROGRESS),
       },
     };
 
@@ -342,8 +348,8 @@ export function KanbanProvider({
     const next: CardStatuses = {
       ...statuses,
       [moduleId]: {
-        ...(statuses[moduleId] ?? DEFAULT_CARD_STATUS),
-        progress: 100,
+        ...cardStatus(statuses, moduleId),
+        status: kanbanToStoredStatus(KANBAN_STATUS.DONE),
         isApproved: true,
         isOutdated: false,
       },
@@ -362,9 +368,13 @@ export function KanbanProvider({
     if (srcIdx < 0) return;
 
     const next: CardStatuses = { ...statuses };
-    (MODULE_ORDER as readonly string[]).forEach((m, i) => {
-      if (i > srcIdx && (next[m]?.progress ?? 0) > 0) {
-        next[m] = { ...(next[m] ?? DEFAULT_CARD_STATUS), isOutdated: true };
+    (['style-selector', 'beat-butcher', 'entity-editor', 'arc-assembler'] as const).forEach((m, i) => {
+      if (i > srcIdx) {
+        const downstream = cardStatus(next, m);
+        const downstreamStatus = resolveKanbanStatus(downstream);
+        if (downstreamStatus !== KANBAN_STATUS.TODO && downstreamStatus !== KANBAN_STATUS.UP_NEXT) {
+          next[m] = { ...downstream, isOutdated: true };
+        }
       }
     });
 
@@ -381,9 +391,9 @@ export function KanbanProvider({
     if (srcIdx < 0) return;
 
     const next: CardStatuses = { ...statuses };
-    (MODULE_ORDER as readonly string[]).forEach((m, i) => {
-      if (i > srcIdx && next[m]?.isOutdated) {
-        next[m] = { ...next[m], isOutdated: false };
+    (['style-selector', 'beat-butcher', 'entity-editor', 'arc-assembler'] as const).forEach((m, i) => {
+      if (i > srcIdx && cardStatus(next, m).isOutdated) {
+        next[m] = { ...cardStatus(next, m), isOutdated: false };
       }
     });
 
@@ -402,11 +412,13 @@ export function KanbanProvider({
       dispatch: () => {},
       getItemsByStatus,
       getCountByStatus,
+      getModuleStatus,
       updateProgress,
       approveItem,
       updateNote,
       setPageIndex,
       createProject,
+      deleteProject,
       markInReview,
       markInProgress,
       markDone,
@@ -420,11 +432,13 @@ export function KanbanProvider({
       isLoading,
       getItemsByStatus,
       getCountByStatus,
+      getModuleStatus,
       updateProgress,
       approveItem,
       updateNote,
       setPageIndex,
       createProject,
+      deleteProject,
       markInReview,
       markInProgress,
       markDone,

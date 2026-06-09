@@ -10,34 +10,32 @@
  *   - Selected collage + its deterministic tag tally
  *   - Loading and persisting to the PowerSync DB
  *
- * Cross-route: markInReview is called via stageCallbacks bridge
- * (stages.tsx registers the real KanbanProvider callback on mount)
- * because style-matcher lives outside the Stages KanbanProvider tree.
+ * Status transitions (markInProgress / markInReview) are handled by
+ * app/style-selector/index.tsx via the stageCallbacks bridge.
  *
  * @module hooks/useStyleSelector
  */
 
 import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
 } from 'react';
 
 import { updateProject, watchProject } from '@/lib/database';
-import { stageCallbacks } from '@/lib/stageCallbacks';
 import {
-  buildSelection,
-  filterCollages,
-  parseStyleSelection,
+    buildSelection,
+    filterCollages,
+    parseStyleSelection,
 } from '@/lib/styleSelector';
 import type {
-  FilterState,
-  StyleSelection,
-  StyleSelectorContextValue,
+    FilterState,
+    StyleSelection,
+    StyleSelectorContextValue,
 } from '@/types/style-selector';
 
 // ============================================
@@ -136,7 +134,6 @@ export function StyleSelectorProvider({
       style_selection: JSON.stringify(sel),
     });
 
-    stageCallbacks.markInReview('style-selector');
     return true;
   }, [projectId]);
 

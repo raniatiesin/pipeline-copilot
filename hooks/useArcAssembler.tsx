@@ -18,8 +18,8 @@
  * Writes arc_assembler_output back to the DB via a debounced
  * 800ms save triggered on every brief edit.
  *
- * The confirmAndSave action flushes immediately, then calls
- * stageCallbacks.markInReview('arc-assembler').
+ * The confirmAndSave action flushes immediately; markInReview is
+ * called from app/arc-assembler/index.tsx on Continue.
  *
  * @module hooks/useArcAssembler
  */
@@ -42,7 +42,6 @@ import {
   parseSubjectCategories,
 } from '@/lib/arcAssembler';
 import { parseStyleSelection } from '@/lib/styleSelector';
-import { stageCallbacks } from '@/lib/stageCallbacks';
 import type { ArcAssemblerContextValue, ArcAssemblerMode, ArcAssemblerOutput } from '@/types/arc-assembler';
 import type { Scene, SubjectCategory } from '@/types/scene-segmentation';
 import type { StyleSelection } from '@/types/style-selector';
@@ -210,7 +209,6 @@ export function ArcAssemblerProvider({ children, projectId }: ArcAssemblerProvid
     await updateProject(projectId, {
       arc_assembler_output: JSON.stringify(output),
     });
-    stageCallbacks.markInReview('arc-assembler');
   }, [projectId]);
 
   // ── Context value ─────────────────────────────────────────────────

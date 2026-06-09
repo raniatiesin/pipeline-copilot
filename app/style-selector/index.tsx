@@ -32,6 +32,7 @@ import {
   CollageImage,
 } from '@/components/style-selector/CollageImage';
 import { ScreenLayout } from '@/components/ui/ScreenLayout';
+import { KANBAN_STATUS } from '@/constants/kanbanStatus';
 import { getLineThickness } from '@/constants/line';
 import { styleMatcherData } from '@/constants/styleMatcherData';
 import { borderRadius, colors, shadows, spacing, typography } from '@/constants/theme';
@@ -292,7 +293,9 @@ function StyleSelectorContent() {
   );
 
   useEffect(() => {
-    stageCallbacks.markInProgress('style-selector');
+    if (stageCallbacks.getModuleStatus('style-selector') === KANBAN_STATUS.UP_NEXT) {
+      stageCallbacks.markInProgress('style-selector');
+    }
   }, []);
 
   const handleBack = useCallback(() => {

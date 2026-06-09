@@ -98,18 +98,20 @@ interface StagesContentProps {
 
 function StagesContent({ script, title, subtitle, projectId }: StagesContentProps) {
   const router = useRouter();
-  const { markInReview, markInProgress, getItemsByStatus, pageIndex } = useKanban();
-  const [currentPageIndex, setCurrentPageIndex] = useState(pageIndex || 0);
+  const { markInReview, markInProgress, getModuleStatus, getItemsByStatus, state } = useKanban();
+  const [currentPageIndex, setCurrentPageIndex] = useState(state.activePageIndex || 0);
 
   // ── Register stageCallbacks on mount ─────────────────────────────
   useEffect(() => {
     stageCallbacks.setMarkInReview(markInReview);
     stageCallbacks.setMarkInProgress(markInProgress);
+    stageCallbacks.setGetModuleStatus(getModuleStatus);
     return () => {
       stageCallbacks.setMarkInReview(null);
       stageCallbacks.setMarkInProgress(null);
+      stageCallbacks.setGetModuleStatus(null);
     };
-  }, [markInReview, markInProgress]);
+  }, [markInReview, markInProgress, getModuleStatus]);
 
   // ── Card navigation ──────────────────────────────────────────────
 
@@ -122,10 +124,13 @@ function StagesContent({ script, title, subtitle, projectId }: StagesContentProp
     } else if (item.moduleId === 'beat-butcher') {
       router.push({
         pathname: '/scene-segmentation/input' as any,
-        params: { prefill: script },
+        params: { prefill: script, projectId },
       });
     } else if (item.moduleId === 'entity-editor') {
-      router.push('/scene-segmentation/entity-editor' as any);
+      router.push({
+        pathname: '/scene-segmentation/entity-editor' as any,
+        params: { projectId },
+      });
     } else if (item.moduleId === 'arc-assembler') {
       router.push({
         pathname: '/arc-assembler/' as any,

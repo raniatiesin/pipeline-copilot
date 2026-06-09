@@ -19,7 +19,8 @@
  * @module app/scene-segmentation/entity-editor
  */
 
-import { router } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -34,19 +35,21 @@ import {
 
 import { Line } from '../../components/ui/Line';
 import { ScreenLayout } from '../../components/ui/ScreenLayout';
-import { THE_LINE } from '../../constants/line';
-import { borderRadius, colors, spacing, typography } from '../../constants/theme';
+import { KANBAN_STATUS } from '../../constants/kanbanStatus';
+import { getLineThickness, THE_LINE } from '../../constants/line';
+import { borderRadius, colors, shadows, spacing, typography } from '../../constants/theme';
 import { useEntityEditor, getSubjectColor, SUBJECT_COLORS } from '../../hooks/useEntityEditor';
 import { useSceneSegmentation } from '../../hooks/useSceneSegmentation';
 import { stageCallbacks } from '../../lib/stageCallbacks';
+import { getProject, resolveKanbanStatus } from '../../lib/database';
+import type { CardStatuses } from '../../lib/database';
 import type { Scene, Subject, SubjectCategory } from '../../types';
 
 // ============================================
 // CONSTANTS
 // ============================================
 
-const SCENE_MIN_WIDTH = 200;
-const SCENE_HEADER_HEIGHT = 36;
+const SCENE_MIN_WIDTH = 160;
 
 // ============================================
 // HELPERS
@@ -70,7 +73,7 @@ function getWordSubjectInfo(
   const cat = subject.categoryId
     ? categories.find(c => c.id === subject.categoryId)
     : null;
-  const color = cat ? getSubjectColor(cat.order) : '#e8824f';
+  const color = cat ? getSubjectColor(cat.order) : colors.secondary;
   return { subject, color, isAssigned: !!cat };
 }
 
@@ -104,8 +107,8 @@ const WordToken = React.memo(function WordToken({
     bgColor = colors.accentAlt + '55';
     borderColor = colors.accentAlt;
   } else if (subjectInfo) {
-    bgColor = subjectInfo.color + '30';
-    borderColor = subjectInfo.isAssigned ? subjectInfo.color : colors.secondary;
+    bgColor = subjectInfo.color + '59';
+    borderColor = subjectInfo.color;
   }
 
   return (
@@ -134,6 +137,7 @@ interface SceneColumnProps {
   pendingSceneId: string | null;
   pendingStartIdx: number | null;
   pendingEndIdx: number | null;
+  isActive: boolean;
   onWordTap: (sceneId: string, wordIdx: number, wordText: string) => void;
 }
 
@@ -144,18 +148,18 @@ const SceneColumn = React.memo(function SceneColumn({
   pendingSceneId,
   pendingStartIdx,
   pendingEndIdx,
+  isActive,
   onWordTap,
 }: SceneColumnProps) {
   const isPending = pendingSceneId === scene.id;
+  const scenePreview = scene.words.map(w => w.text).join(' ');
 
   return (
-    <View style={styles.sceneColumn}>
-      <View style={styles.sceneHeader}>
-        <Text style={styles.sceneHeaderLabel}>Scene {scene.order}</Text>
-        <Text style={styles.sceneHeaderMeta}>{scene.words.length}w</Text>
-      </View>
-
-      <Line orientation="horizontal" weight="hairline" color={THE_LINE.color} />
+    <View style={[styles.sceneColumn, isActive && styles.sceneColumnActive]}>
+      <Text style={styles.sceneHeaderLabel}>Scene {scene.order}</Text>
+      <Text style={styles.scenePreview} numberOfLines={3}>
+        {scenePreview || 'Empty scene'}
+      </Text>
 
       <View style={styles.wordsArea}>
         {scene.words.map(word => {
@@ -340,6 +344,7 @@ const ProfileCard = React.memo(function ProfileCard({
 function EmptyScenes() {
   return (
     <View style={styles.emptyCenter}>
+      <Feather name="scissors" size={40} color={colors.text.secondary} />
       <Text style={styles.emptyTitle}>No scenes yet</Text>
       <Text style={styles.emptyBody}>
         Process a script in Beat Butcher first to generate scenes for subject tagging.
@@ -351,9 +356,9 @@ function EmptyScenes() {
 function EmptyProfiles() {
   return (
     <View style={styles.emptyProfiles}>
-      <Text style={styles.emptyProfilesTitle}>No subjects tagged</Text>
+      <Feather name="users" size={32} color={colors.text.secondary} />
       <Text style={styles.emptyProfilesBody}>
-        Tap a word above to start, then tap a second word to select a range and name it.
+        No subjects yet — tap words above to tag them
       </Text>
     </View>
   );
@@ -365,6 +370,7 @@ function EmptyProfiles() {
 
 export default function EntityEditorScreen() {
   const { height: windowHeight } = useWindowDimensions();
+  const { projectId } = useLocalSearchParams<{ projectId?: string }>();
   const stripHeight = Math.max(240, Math.round(windowHeight * 0.42));
 
   const { state } = useSceneSegmentation();
@@ -374,12 +380,13 @@ export default function EntityEditorScreen() {
     router.back();
   }, []);
 
-  // Mark card IN_PROGRESS when screen mounts
   useEffect(() => {
-    stageCallbacks.markInProgress('entity-editor');
+    if (stageCallbacks.getModuleStatus('entity-editor') === KANBAN_STATUS.UP_NEXT) {
+      stageCallbacks.markInProgress('entity-editor');
+    }
   }, []);
 
-  const handleContinue = useCallback(() => {
+  const handleContinue = useCallback(async () => {
     if (state.subjectCategories.length === 0) {
       Alert.alert(
         'No subjects tagged',
@@ -388,9 +395,41 @@ export default function EntityEditorScreen() {
       );
       return;
     }
+
     stageCallbacks.markInReview('entity-editor');
     router.dismissAll();
-  }, [state.subjectCategories.length]);
+
+    if (!projectId) return;
+
+    const row = await getProject(projectId);
+    if (!row?.card_statuses) return;
+
+    try {
+      const statuses = JSON.parse(row.card_statuses) as CardStatuses;
+      const styleStatus = statuses['style-selector'];
+      const styleResolved = styleStatus ? resolveKanbanStatus(styleStatus) : KANBAN_STATUS.TODO;
+      const styleDone =
+        styleResolved === KANBAN_STATUS.IN_REVIEW ||
+        styleResolved === KANBAN_STATUS.DONE;
+
+      if (styleDone) {
+        router.push({
+          pathname: '/arc-assembler/' as any,
+          params: { projectId },
+        });
+      } else {
+        router.push({
+          pathname: '/style-selector/' as any,
+          params: { projectId },
+        });
+      }
+    } catch {
+      router.push({
+        pathname: '/style-selector/' as any,
+        params: { projectId },
+      });
+    }
+  }, [state.subjectCategories.length, projectId]);
 
   // ----------------------------------------
   // Derive appearance counts per category
@@ -512,13 +551,11 @@ export default function EntityEditorScreen() {
               horizontal
               keyExtractor={s => s.id}
               showsHorizontalScrollIndicator
-              ItemSeparatorComponent={() => (
-                <Line orientation="vertical" weight="hairline" color={THE_LINE.color} style={styles.sceneDivider} />
-              )}
               renderItem={({ item: scene }) => (
                 <SceneColumn
                   scene={scene}
                   categories={state.subjectCategories}
+                  isActive={selectionAnchorInfo?.sceneId === scene.id}
                   selectionAnchorWordIdx={
                     selectionAnchorInfo?.sceneId === scene.id
                       ? selectionAnchorInfo.wordIdx
@@ -540,7 +577,7 @@ export default function EntityEditorScreen() {
         {/* ---- SUBJECT PROFILES PANEL ---- */}
         <View style={styles.profilesPanel}>
           <View style={styles.panelHeader}>
-            <Text style={styles.panelTitle}>Subject Profiles</Text>
+            <Text style={styles.panelTitle}>Subjects</Text>
             {profileCount > 0 && (
               <View style={styles.profileCountBadge}>
                 <Text style={styles.profileCountText}>{profileCount}</Text>
@@ -590,6 +627,8 @@ const styles = StyleSheet.create({
   sceneStripContainer: {
     backgroundColor: colors.surface,
     overflow: 'hidden',
+    borderBottomWidth: getLineThickness('base'),
+    borderBottomColor: colors.border,
   },
   sceneStripEmpty: {
     justifyContent: 'center',
@@ -622,24 +661,24 @@ const styles = StyleSheet.create({
   // Scene column
   sceneColumn: {
     minWidth: SCENE_MIN_WIDTH,
+    padding: spacing.sm,
+    borderRightWidth: getLineThickness('base'),
+    borderRightColor: colors.border,
     backgroundColor: colors.surface,
   },
-  sceneHeader: {
-    height: SCENE_HEADER_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
-    backgroundColor: colors.surfaceMuted,
+  sceneColumnActive: {
+    borderTopWidth: getLineThickness('base'),
+    borderTopColor: colors.accentAlt,
   },
   sceneHeaderLabel: {
+    ...typography.overline,
+    color: colors.text.secondary,
+    marginBottom: spacing.xxs,
+  },
+  scenePreview: {
     ...typography.caption,
     color: colors.text.primary,
-    fontWeight: '700',
-  },
-  sceneHeaderMeta: {
-    ...typography.caption,
-    color: colors.text.muted,
+    marginBottom: spacing.sm,
   },
   wordsArea: {
     flex: 1,
@@ -669,17 +708,19 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   wordTokenHighlighted: {
-    borderWidth: 1,
+    borderWidth: 2,
   },
   wordText: {
-    ...typography.caption,
-    fontSize: 12,
+    ...typography.body,
+    color: colors.text.primary,
   },
 
   // Profiles panel
   profilesPanel: {
     flex: 1,
     backgroundColor: colors.background,
+    borderTopWidth: getLineThickness('base'),
+    borderTopColor: colors.border,
   },
   panelHeader: {
     flexDirection: 'row',
@@ -687,13 +728,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderMuted,
   },
   panelTitle: {
     ...typography.overline,
-    color: colors.text.primary,
-    fontWeight: '700',
+    color: colors.text.secondary,
   },
   profileCountBadge: {
     backgroundColor: colors.secondary,
@@ -714,10 +752,11 @@ const styles = StyleSheet.create({
   // Naming bar
   namingBar: {
     backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderMuted,
-    padding: spacing.md,
+    borderTopWidth: getLineThickness('base'),
+    borderTopColor: colors.border,
+    padding: spacing.sm,
     gap: spacing.sm,
+    ...shadows.hard,
   },
   namingBarHeader: {
     flexDirection: 'row',
@@ -740,12 +779,11 @@ const styles = StyleSheet.create({
   namingInput: {
     ...typography.body,
     color: colors.text.primary,
-    borderWidth: 1,
+    borderWidth: getLineThickness('base'),
     borderColor: colors.border,
     borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    backgroundColor: colors.background,
+    padding: spacing.sm,
+    backgroundColor: colors.surface,
   },
   suggestionRow: {
     flexDirection: 'row',
@@ -777,10 +815,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   confirmBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.error,
     borderRadius: borderRadius.md,
     paddingVertical: spacing.sm,
     alignItems: 'center',
+    ...shadows.hard,
   },
   confirmBtnDisabled: {
     opacity: 0.4,

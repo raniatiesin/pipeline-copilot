@@ -38,6 +38,7 @@ import {
   DropZone,
   SceneMapperCard,
 } from '../../components/scene-segmentation/scene-mapper';
+import { KANBAN_STATUS } from '../../constants/kanbanStatus';
 import { ScreenLayout } from '../../components/ui/ScreenLayout';
 import { stageCallbacks } from '../../lib/stageCallbacks';
 import { DROP_ZONE_HEIGHT } from '../../constants/sceneMapper';
@@ -292,9 +293,10 @@ export default function BeatButcherScreen() {
 
   // ── Navigation ──
 
-  // Mark card IN_PROGRESS when screen mounts
   useEffect(() => {
-    stageCallbacks.markInProgress('beat-butcher');
+    if (stageCallbacks.getModuleStatus('beat-butcher') === KANBAN_STATUS.UP_NEXT) {
+      stageCallbacks.markInProgress('beat-butcher');
+    }
   }, []);
 
   const handleContinue = useCallback(() => {
@@ -427,11 +429,8 @@ export default function BeatButcherScreen() {
           {/* Empty state */}
           {sceneItems.length === 0 && (
             <View style={styles.emptyState}>
-              <Feather name="film" size={40} color={colors.text.secondary} />
-              <Text style={styles.emptyText}>No scenes yet</Text>
-              <Text style={styles.emptySubtext}>
-                Go back and paste a script to generate scenes
-              </Text>
+              <Feather name="scissors" size={48} color={colors.text.secondary} />
+              <Text style={styles.emptyText}>Paste your script to get started</Text>
             </View>
           )}
 
@@ -479,14 +478,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   emptyText: {
-    ...typography.subtitle,
-    color: colors.text.secondary,
-  },
-  emptySubtext: {
-    ...typography.caption,
+    ...typography.body,
     color: colors.text.secondary,
     textAlign: 'center',
-    paddingHorizontal: spacing.xl,
   },
   bottomPadding: {
     height: 120,

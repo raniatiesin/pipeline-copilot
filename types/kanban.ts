@@ -181,11 +181,14 @@ export interface KanbanContextValue {
   // ── Convenience methods ────────────────────────────────────────────
   getItemsByStatus: (status: KanbanStatus) => KanbanItem[];
   getCountByStatus: (status: KanbanStatus) => number;
+  /** Current column status for a stage module id (stages Kanban only). */
+  getModuleStatus: (moduleId: string) => KanbanStatus | null;
   updateProgress: (id: string, progress: number) => void;
   approveItem: (id: string) => void;
   updateNote: (id: string, note: string) => void;
   setPageIndex: (index: number) => void;
   createProject: (data: CreateProjectData) => void;
+  deleteProject: (id: string) => void;
 
   // ── Stage card lifecycle actions ───────────────────────────────────
   /**

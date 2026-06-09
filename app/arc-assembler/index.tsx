@@ -29,8 +29,9 @@ import { CollageOverlay } from '@/components/arc-assembler/CollageOverlay';
 import { SceneModePage } from '@/components/arc-assembler/SceneModePage';
 import { SubjectModePage } from '@/components/arc-assembler/SubjectModePage';
 import { ScreenLayout } from '@/components/ui/ScreenLayout';
+import { KANBAN_STATUS } from '@/constants/kanbanStatus';
 import { getLineThickness } from '@/constants/line';
-import { colors, spacing, typography } from '@/constants/theme';
+import { borderRadius, colors, shadows, spacing, typography } from '@/constants/theme';
 import { ArcAssemblerProvider, useArcAssembler } from '@/hooks/useArcAssembler';
 import { stageCallbacks } from '@/lib/stageCallbacks';
 import type { ArcAssemblerMode } from '@/types/arc-assembler';
@@ -49,37 +50,37 @@ function ModeIndicator({ mode, onSelect }: ModeIndicatorProps) {
     <View style={indicatorStyles.row}>
       <TouchableOpacity
         style={[
-          indicatorStyles.tab,
-          mode === 'scene' && indicatorStyles.tabActive,
+          indicatorStyles.pill,
+          mode === 'scene' && indicatorStyles.pillActive,
         ]}
         onPress={() => onSelect('scene')}
         activeOpacity={0.75}
       >
         <Text
           style={[
-            indicatorStyles.tabLabel,
-            mode === 'scene' && indicatorStyles.tabLabelActive,
+            indicatorStyles.pillLabel,
+            mode === 'scene' && indicatorStyles.pillLabelActive,
           ]}
         >
-          SCENE
+          SCENES
         </Text>
       </TouchableOpacity>
 
       <TouchableOpacity
         style={[
-          indicatorStyles.tab,
-          mode === 'subject' && indicatorStyles.tabActive,
+          indicatorStyles.pill,
+          mode === 'subject' && indicatorStyles.pillActive,
         ]}
         onPress={() => onSelect('subject')}
         activeOpacity={0.75}
       >
         <Text
           style={[
-            indicatorStyles.tabLabel,
-            mode === 'subject' && indicatorStyles.tabLabelActive,
+            indicatorStyles.pillLabel,
+            mode === 'subject' && indicatorStyles.pillLabelActive,
           ]}
         >
-          SUBJECT
+          SUBJECTS
         </Text>
       </TouchableOpacity>
     </View>
@@ -89,28 +90,32 @@ function ModeIndicator({ mode, onSelect }: ModeIndicatorProps) {
 const indicatorStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    borderBottomWidth: getLineThickness('base'),
-    borderBottomColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
     backgroundColor: colors.background,
   },
-  tab: {
-    flex: 1,
+  pill: {
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    alignItems: 'center',
-    borderBottomWidth: 3,
-    borderBottomColor: 'transparent',
+    borderRadius: borderRadius.sm,
+    borderWidth: getLineThickness('base'),
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  tabActive: {
-    borderBottomColor: colors.primary,
-    backgroundColor: colors.surfaceMuted,
+  pillActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  tabLabel: {
-    ...typography.overline,
-    color: colors.text.muted,
-    fontSize: 11,
+  pillLabel: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
-  tabLabelActive: {
-    color: colors.text.primary,
+  pillLabelActive: {
+    color: colors.text.inverse,
   },
 });
 
@@ -123,9 +128,10 @@ function ArcAssemblerContent() {
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
 
-  // Mark this card IN_PROGRESS when screen first opens (UP_NEXT → IN_PROGRESS)
   useEffect(() => {
-    stageCallbacks.markInProgress('arc-assembler');
+    if (stageCallbacks.getModuleStatus('arc-assembler') === KANBAN_STATUS.UP_NEXT) {
+      stageCallbacks.markInProgress('arc-assembler');
+    }
   }, []);
 
   const {
@@ -134,11 +140,6 @@ function ArcAssemblerContent() {
     styleSelection,
     confirmAndSave,
   } = useArcAssembler();
-
-  // Mark card IN_PROGRESS when screen mounts
-  useEffect(() => {
-    stageCallbacks.markInProgress('arc-assembler');
-  }, []);
 
   // ── Mode switching ────────────────────────────────────────────────
 

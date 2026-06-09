@@ -16,14 +16,18 @@
 
 import { KANBAN_STATUS } from '@/constants/kanbanStatus';
 import { MODULE_ORDER } from '@/constants/kanbanTheme';
-import type { KanbanItem } from '@/types/kanban';
+import type { KanbanItem, KanbanStatus } from '@/types/kanban';
 import { powerSyncDb } from './powersync';
 
 // ============================================
 // TYPES
 // ============================================
 
+/** Status token stored in card_statuses JSON */
+export type StoredStageStatus = 'TODO' | 'UP_NEXT' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE';
+
 export interface StageCardStatus {
+  status?: StoredStageStatus | string;
   progress: number;
   isApproved: boolean;
   isOutdated: boolean;
@@ -63,11 +67,62 @@ export interface PipelineUpdate {
 // ============================================
 
 const DEFAULT_STAGE_STATUS: StageCardStatus = {
+  status: 'TODO',
   progress: 0,
   isApproved: false,
   isOutdated: false,
   quickNote: '',
 };
+
+// ============================================
+// STATUS HELPERS
+// ============================================
+
+export function kanbanToStoredStatus(status: KanbanStatus): StoredStageStatus {
+  switch (status) {
+    case KANBAN_STATUS.TODO:
+      return 'TODO';
+    case KANBAN_STATUS.UP_NEXT:
+      return 'UP_NEXT';
+    case KANBAN_STATUS.IN_PROGRESS:
+      return 'IN_PROGRESS';
+    case KANBAN_STATUS.IN_REVIEW:
+      return 'IN_REVIEW';
+    case KANBAN_STATUS.DONE:
+      return 'DONE';
+    default:
+      return 'TODO';
+  }
+}
+
+export function storedStatusToKanban(stored: string | undefined): KanbanStatus | null {
+  if (!stored) return null;
+  switch (stored.toUpperCase()) {
+    case 'TODO':
+      return KANBAN_STATUS.TODO;
+    case 'UP_NEXT':
+      return KANBAN_STATUS.UP_NEXT;
+    case 'IN_PROGRESS':
+      return KANBAN_STATUS.IN_PROGRESS;
+    case 'IN_REVIEW':
+      return KANBAN_STATUS.IN_REVIEW;
+    case 'DONE':
+      return KANBAN_STATUS.DONE;
+    default:
+      return null;
+  }
+}
+
+/** Resolve column status from stored card_statuses entry (legacy progress fallback). */
+export function resolveKanbanStatus(card: StageCardStatus): KanbanStatus {
+  const fromStored = storedStatusToKanban(card.status);
+  if (fromStored) return fromStored;
+
+  if (card.isApproved) return KANBAN_STATUS.DONE;
+  if (card.progress >= 100) return KANBAN_STATUS.IN_REVIEW;
+  if (card.progress > 0) return KANBAN_STATUS.IN_PROGRESS;
+  return KANBAN_STATUS.TODO;
+}
 
 const STAGE_CONFIG: Record<string, {
   title: string;
@@ -118,9 +173,11 @@ function computeProjectProgress(cardStatusesJson: string | null): number {
   if (!cardStatusesJson) return 10;
   try {
     const statuses: CardStatuses = JSON.parse(cardStatusesJson);
-    const done = MODULE_ORDER.filter(
-      m => (statuses[m]?.progress ?? 0) >= 100 && statuses[m]?.isApproved,
-    ).length;
+    const done = MODULE_ORDER.filter((m) => {
+      const s = statuses[m];
+      if (!s) return false;
+      return resolveKanbanStatus(s) === KANBAN_STATUS.DONE;
+    }).length;
     return Math.max(10, Math.round((done / MODULE_ORDER.length) * 100));
   } catch {
     return 10;
@@ -167,7 +224,7 @@ export function rowToStageItems(row: PipelineRow): KanbanItem[] {
       description: cfg.description,
       icon: cfg.icon,
       moduleId,
-      status: KANBAN_STATUS.TODO,
+      status: resolveKanbanStatus(s),
       order: cfg.order,
       progress: s.progress,
       isApproved: s.isApproved,
@@ -253,13 +310,24 @@ export async function createProject(data: {
   const id = generateUUID();
   const now = new Date().toISOString();
 
-  const defaultStatuses: CardStatuses = (MODULE_ORDER as readonly string[]).reduce(
-    (acc, moduleId) => {
-      acc[moduleId] = { ...DEFAULT_STAGE_STATUS };
-      return acc;
+  const defaultStatuses: CardStatuses = {
+    'style-selector': {
+      ...DEFAULT_STAGE_STATUS,
+      status: 'UP_NEXT',
     },
-    {} as CardStatuses,
-  );
+    'beat-butcher': {
+      ...DEFAULT_STAGE_STATUS,
+      status: 'IN_PROGRESS',
+    },
+    'entity-editor': {
+      ...DEFAULT_STAGE_STATUS,
+      status: 'TODO',
+    },
+    'arc-assembler': {
+      ...DEFAULT_STAGE_STATUS,
+      status: 'TODO',
+    },
+  };
 
   await powerSyncDb.execute(
     `INSERT INTO pipelines
@@ -277,6 +345,15 @@ export async function createProject(data: {
   );
 
   return id;
+}
+
+export async function getProject(projectId: string): Promise<PipelineRow | null> {
+  const result = await powerSyncDb.getAll(
+    'SELECT * FROM pipelines WHERE id = ? LIMIT 1',
+    [projectId],
+  );
+  const rows = (result as PipelineRow[]) ?? [];
+  return rows[0] ?? null;
 }
 
 /**
