@@ -147,17 +147,82 @@ const STAGE_CONFIG: Record<string, {
 // ROW → KANBAN ITEM MAPPERS
 // ============================================
 
-function parseCardStatuses(json: string | null | undefined): CardStatuses {
-  if (!json) return {};
-  try { return JSON.parse(json) as CardStatuses; } catch { return {}; }
+function toBool(value: unknown): boolean {
+  return value === true || value === 1 || value === 'true' || value === '1';
+}
+
+function coerceCardStatus(raw: Partial<StageCardStatus> | undefined): StageCardStatus {
+  if (!raw) return { ...DEFAULT_STAGE_STATUS };
+
+  const progressRaw = raw.progress;
+  const progressNum =
+    typeof progressRaw === 'number'
+      ? progressRaw
+      : typeof progressRaw === 'string'
+        ? Number(progressRaw)
+        : 0;
+
+  return {
+    progress: Number.isFinite(progressNum)
+      ? Math.max(0, Math.min(100, progressNum))
+      : 0,
+    isApproved: toBool(raw.isApproved),
+    isOutdated: toBool(raw.isOutdated),
+    quickNote: typeof raw.quickNote === 'string' ? raw.quickNote : '',
+  };
+}
+
+/** Apply creation defaults when card_statuses is empty or missing module entries. */
+function normalizeCardStatuses(statuses: CardStatuses): CardStatuses {
+  const hasStoredProgress = (MODULE_ORDER as readonly string[]).some(
+    moduleId => statuses[moduleId]?.progress !== undefined && statuses[moduleId]?.progress !== null,
+  );
+
+  if (!hasStoredProgress) {
+    return {
+      'beat-butcher': { ...DEFAULT_STAGE_STATUS, progress: 50 },
+      'style-selector': { ...DEFAULT_STAGE_STATUS, progress: 0 },
+      'entity-editor': { ...DEFAULT_STAGE_STATUS, progress: 0 },
+      'arc-assembler': { ...DEFAULT_STAGE_STATUS, progress: 0 },
+    };
+  }
+
+  const result: CardStatuses = {};
+  for (const moduleId of MODULE_ORDER) {
+    result[moduleId] = coerceCardStatus(statuses[moduleId]);
+  }
+  return result;
+}
+
+export function parseCardStatuses(raw: unknown): CardStatuses {
+  if (raw == null) return normalizeCardStatuses({});
+
+  if (typeof raw === 'object') {
+    return normalizeCardStatuses(raw as CardStatuses);
+  }
+
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return normalizeCardStatuses({});
+    try {
+      const parsed = JSON.parse(trimmed) as CardStatuses;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return normalizeCardStatuses(parsed);
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  return normalizeCardStatuses({});
 }
 
 function cardStatus(statuses: CardStatuses, moduleId: string): StageCardStatus {
-  return { ...DEFAULT_STAGE_STATUS, ...(statuses[moduleId] ?? {}) };
+  return coerceCardStatus(statuses[moduleId]);
 }
 
 /** Overall project progress = average of all 4 stage card progress values. */
-export function computeProjectProgress(cardStatusesJson: string | null): number {
+export function computeProjectProgress(cardStatusesJson: unknown): number {
   const statuses = parseCardStatuses(cardStatusesJson);
   const bb = cardStatus(statuses, 'beat-butcher').progress;
   const ss = cardStatus(statuses, 'style-selector').progress;

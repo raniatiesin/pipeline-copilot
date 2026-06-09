@@ -17,7 +17,9 @@ import {
     deleteProject as dbDeleteProject,
     updateProject as dbUpdateProject,
     deriveStageStatus,
+    getProject,
     getProjects,
+    parseCardStatuses,
     rowToProjectItem,
     rowToStageItems,
     watchProject,
@@ -49,16 +51,31 @@ function mIdx(moduleId: string | undefined): number {
   return MODULE_ORDER.indexOf(moduleId as typeof MODULE_ORDER[number]);
 }
 
-function parseCardStatuses(json: string | null | undefined): CardStatuses {
-  if (!json) return {};
-  try { return JSON.parse(json) as CardStatuses; } catch { return {}; }
-}
-
 function cardStatus(
   statuses: CardStatuses,
   moduleId: string,
 ): StageCardStatus {
   return { ...DEFAULT_STAGE_STATUS, ...(statuses[moduleId] ?? {}) };
+}
+
+function buildStageItemsFromRows(
+  rows: PipelineRow[],
+  projectId: string | undefined,
+): Record<string, KanbanItem> {
+  const newItems: Record<string, KanbanItem> = {};
+
+  if (projectId) {
+    if (rows.length > 0) {
+      rowToStageItems(rows[0]).forEach(item => { newItems[item.id] = item; });
+    }
+  } else {
+    rows.forEach(row => {
+      const item = rowToProjectItem(row);
+      newItems[item.id] = item;
+    });
+  }
+
+  return newItems;
 }
 
 function derivedStatus(
@@ -109,12 +126,7 @@ export function KanbanProvider({
           const initialRows = await getProjects();
           if (!aborted) {
             rawRowsRef.current = initialRows;
-            const newItems: Record<string, KanbanItem> = {};
-            initialRows.forEach(row => {
-              const item = rowToProjectItem(row);
-              newItems[item.id] = item;
-            });
-            setItems(newItems);
+            setItems(buildStageItemsFromRows(initialRows, undefined));
             setIsLoading(false);
           }
         } catch (err) {
@@ -123,6 +135,21 @@ export function KanbanProvider({
             setIsLoading(false);
           }
           return;
+        }
+      } else {
+        // Seed from a one-shot read so the first paint matches DB state
+        // before watchProject's initial (sometimes empty) emission.
+        try {
+          const row = await getProject(projectId);
+          if (!aborted && row) {
+            rawRowsRef.current = [row];
+            setItems(buildStageItemsFromRows([row], projectId));
+            setIsLoading(false);
+          }
+        } catch (err) {
+          if (!aborted) {
+            console.error('[useKanban] getProject error:', err);
+          }
         }
       }
 
@@ -133,24 +160,16 @@ export function KanbanProvider({
 
         if (!Array.isArray(rows)) continue;
 
+        // PowerSync may emit an empty array before the row is visible — never
+        // wipe seeded / initialItems state on that transient emission.
+        if (projectId && rows.length === 0) continue;
+
         rawRowsRef.current = rows;
 
-        const newItems: Record<string, KanbanItem> = {};
-
-        if (projectId) {
-          if (rows.length > 0) {
-            rowToStageItems(rows[0]).forEach(item => { newItems[item.id] = item; });
-          }
-        } else {
-          if (rows.length > 0) {
-            rows.forEach(row => {
-              const item = rowToProjectItem(row);
-              newItems[item.id] = item;
-            });
-          }
+        const newItems = buildStageItemsFromRows(rows, projectId);
+        if (Object.keys(newItems).length > 0) {
+          setItems(newItems);
         }
-
-        setItems(newItems);
         setIsLoading(false);
       }
     };
