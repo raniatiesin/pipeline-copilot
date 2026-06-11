@@ -14,7 +14,7 @@
  */
 
 import { Stack, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { CreateProjectModal, KanbanBoard } from '@/components/kanban';
@@ -29,8 +29,19 @@ import type { KanbanItem } from '@/types/kanban';
 
 function ProjectsKanbanContent() {
   const router = useRouter();
-  const { createProject } = useKanban();
+  const { createProject, state } = useKanban();
   const [showModal, setShowModal] = useState(false);
+
+  const projectNumbers = useMemo(() => {
+    const projects = Object.values(state.items);
+    const map: Record<string, number> = {};
+    [...projects]
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .forEach((p, i) => {
+        map[p.id] = i + 1;
+      });
+    return map;
+  }, [state.items]);
 
   const handleAddProject = useCallback(() => {
     setShowModal(true);
@@ -43,28 +54,32 @@ function ProjectsKanbanContent() {
   const handleCreateProject = useCallback(async (data: CreateProjectData) => {
     const id = await createProject(data);
     setShowModal(false);
+    const projectNumber = Object.values(state.items).length + 1;
+
     router.push({
       pathname: '/stages' as any,
       params: {
         projectId: id,
+        projectNumber: String(projectNumber || 1),
         title: data.prospectName,
         subtitle: data.postName,
         script: data.script,
       },
     });
-  }, [createProject, router]);
+  }, [createProject, router, state.items]);
 
   const handleItemPress = useCallback((item: KanbanItem) => {
     router.push({
       pathname: '/stages' as any,
       params: {
         projectId: item.id,
+        projectNumber: String(projectNumbers[item.id] ?? 1),
         title: item.title,
         subtitle: item.description ?? '',
         script: item.script ?? '',
       },
     });
-  }, [router]);
+  }, [router, projectNumbers]);
 
   return (
     <>
@@ -73,6 +88,7 @@ function ProjectsKanbanContent() {
       <KanbanBoard
         onItemPress={handleItemPress}
         onAddProject={handleAddProject}
+        projectNumbers={projectNumbers}
       />
 
       <CreateProjectModal

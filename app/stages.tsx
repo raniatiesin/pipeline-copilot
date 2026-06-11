@@ -13,16 +13,18 @@
  * @module app/stages
  */
 
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { KanbanBoard } from '@/components/kanban';
 import { ScreenLayout } from '@/components/ui/ScreenLayout';
 import { KANBAN_STATUS, KANBAN_STATUS_ORDER } from '@/constants/kanbanStatus';
 import { KanbanProvider, useKanban } from '@/hooks/useKanban';
+import { getFooterPillConfig } from '@/lib/kanbanActionPills';
+import { getActiveColumnStatus, getPriorityItemInStatus } from '@/lib/kanbanLogic';
 import { stageCallbacks } from '@/lib/stageCallbacks';
-import type { KanbanItem } from '@/types/kanban';
+import type { KanbanItem, KanbanStatus } from '@/types/kanban';
 
 // ============================================
 // STAGE MODULES — 4 cards, final names
@@ -94,12 +96,56 @@ interface StagesContentProps {
   title: string;
   subtitle: string;
   projectId: string;
+  projectNumber: number;
 }
 
-function StagesContent({ script, title, subtitle, projectId }: StagesContentProps) {
+function StagesContent({
+  script,
+  title,
+  subtitle,
+  projectId,
+  projectNumber,
+}: StagesContentProps) {
   const router = useRouter();
-  const { markInReview, markInProgress, getModuleStatus, getItemsByStatus, state } = useKanban();
-  const [currentPageIndex, setCurrentPageIndex] = useState(state.activePageIndex || 0);
+  const {
+    markInReview,
+    markInProgress,
+    markDone,
+    getModuleStatus,
+    getItemsByStatus,
+    state,
+  } = useKanban();
+
+  const postName = subtitle || title;
+  const allItems = useMemo(
+    () => Object.values(state.items),
+    [state.items],
+  );
+
+  const activeColumnStatus = useMemo(
+    () => getActiveColumnStatus(allItems),
+    [allItems],
+  );
+
+  const [focusedStatus, setFocusedStatus] = useState<KanbanStatus>(activeColumnStatus);
+  const [autoFocusKey, setAutoFocusKey] = useState(0);
+
+  useEffect(() => {
+    if (!state.isLoading && allItems.length > 0) {
+      const status = getActiveColumnStatus(allItems);
+      setFocusedStatus(status);
+      setAutoFocusKey((k) => k + 1);
+    }
+  }, [state.isLoading, allItems]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (allItems.length === 0) return;
+      const status = getActiveColumnStatus(allItems);
+      setFocusedStatus(status);
+      setAutoFocusKey((k) => k + 1);
+    }, [allItems]),
+  );
 
   // ── Register stageCallbacks on mount ─────────────────────────────
   useEffect(() => {
@@ -113,65 +159,93 @@ function StagesContent({ script, title, subtitle, projectId }: StagesContentProp
     };
   }, [markInReview, markInProgress, getModuleStatus]);
 
+  const handlePageChange = useCallback((pageIndex: number) => {
+    const status = KANBAN_STATUS_ORDER[pageIndex];
+    if (status) {
+      setFocusedStatus(status);
+    }
+  }, []);
+
   // ── Card navigation ──────────────────────────────────────────────
 
   const handleItemPress = useCallback((item: KanbanItem) => {
+    const workParams = {
+      projectId,
+      projectNumber: String(projectNumber),
+      title: postName,
+    };
+
     if (item.moduleId === 'style-selector') {
       router.push({
         pathname: '/style-selector/' as any,
-        params: { projectId },
+        params: workParams,
       });
     } else if (item.moduleId === 'beat-butcher') {
       router.push({
         pathname: '/scene-segmentation/beat-butcher' as any,
-        params: { projectId },
+        params: workParams,
       });
     } else if (item.moduleId === 'entity-editor') {
       router.push({
         pathname: '/scene-segmentation/entity-editor' as any,
-        params: { projectId },
+        params: workParams,
       });
     } else if (item.moduleId === 'arc-assembler') {
       router.push({
         pathname: '/arc-assembler/' as any,
-        params: { projectId },
+        params: workParams,
       });
     }
-  }, [router, projectId]);
+  }, [router, projectId, projectNumber, postName]);
 
   const handleBack = useCallback(() => {
     router.back();
   }, [router]);
 
+  const footerPill = useMemo(
+    () => getFooterPillConfig(focusedStatus, allItems),
+    [focusedStatus, allItems],
+  );
+
   const handleContinue = useCallback(() => {
-    const currentStatus = KANBAN_STATUS_ORDER[currentPageIndex];
-    if (!currentStatus) return;
-    const items = getItemsByStatus(currentStatus);
-    if (items.length > 0) {
-      handleItemPress(items[0]);
+    const item = getPriorityItemInStatus(allItems, focusedStatus);
+    if (!item?.moduleId) return;
+
+    if (focusedStatus === KANBAN_STATUS.IN_REVIEW) {
+      markDone(item.moduleId);
+      return;
     }
-  }, [currentPageIndex, handleItemPress, getItemsByStatus]);
+
+    handleItemPress(item);
+  }, [allItems, focusedStatus, markDone, handleItemPress]);
 
   // ── Progress (count of DONE stage cards) ─────────────────────────
 
   const doneCount = getItemsByStatus(KANBAN_STATUS.DONE).length;
   const progress = Math.round((doneCount / 4) * 100);
 
+  const showFooter =
+    focusedStatus !== KANBAN_STATUS.TODO &&
+    focusedStatus !== KANBAN_STATUS.DONE &&
+    footerPill != null;
+
   return (
     <ScreenLayout
-      tabs={[
-        { label: 'Projects', route: '/project' },
-        { label: title, route: '/stages' },
-      ]}
-      title={subtitle || title}
+      tabs={[{ label: `Project #${projectNumber}`, route: '/project' }]}
+      title={postName}
       progress={progress}
       onBack={handleBack}
-      onContinue={handleContinue}
+      onContinue={showFooter ? handleContinue : undefined}
+      continueLabel={footerPill?.label}
+      continueColor={footerPill?.color}
+      showFooter={showFooter}
     >
       <Stack.Screen options={{ headerShown: false }} />
       <KanbanBoard
         onItemPress={handleItemPress}
-        onPageChange={setCurrentPageIndex}
+        onPageChange={handlePageChange}
+        autoFocusStatus={activeColumnStatus}
+        autoFocusKey={autoFocusKey}
       />
     </ScreenLayout>
   );
@@ -182,12 +256,15 @@ function StagesContent({ script, title, subtitle, projectId }: StagesContentProp
 // ============================================
 
 export default function StagesScreen() {
-  const { projectId, title, subtitle, script } = useLocalSearchParams<{
+  const { projectId, title, subtitle, script, projectNumber } = useLocalSearchParams<{
     projectId?: string;
     title?: string;
     subtitle?: string;
     script?: string;
+    projectNumber?: string;
   }>();
+
+  const parsedProjectNumber = projectNumber ? parseInt(projectNumber, 10) : 1;
 
   return (
     <KanbanProvider
@@ -199,6 +276,7 @@ export default function StagesScreen() {
         subtitle={subtitle || ''}
         script={script || ''}
         projectId={projectId || ''}
+        projectNumber={Number.isFinite(parsedProjectNumber) ? parsedProjectNumber : 1}
       />
     </KanbanProvider>
   );

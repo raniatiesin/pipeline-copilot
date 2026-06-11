@@ -10,12 +10,19 @@
 
 import { Feather } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { ActionPill } from '@/components/ui/ActionPill';
 import { KANBAN_STATUS } from '@/constants/kanbanStatus';
 import { MODULE_CONFIG } from '@/constants/kanbanTheme';
+import { spacing } from '@/constants/theme';
 import { useKanban } from '@/hooks/useKanban';
+import {
+  getStageCardPillConfig,
+  PROJECT_CARD_PILLS,
+} from '@/lib/kanbanActionPills';
 import { exportPipeline } from '@/lib/exportPipeline';
 import type { KanbanCardProps } from '@/types/kanban';
 
@@ -30,10 +37,17 @@ export const KanbanCard = React.memo(function KanbanCard({
   item,
   onPress,
   cardWidth,
+  projectNumber,
 }: KanbanCardProps) {
-  const { updateNote, markDone, getProjectRow, deleteProject } = useKanban();
+  const router = useRouter();
+  const { state, updateNote, markDone, getProjectRow, deleteProject } = useKanban();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  const allItems = useMemo(
+    () => Object.values(state.items),
+    [state.items],
+  );
 
   const iconName = useMemo(() => {
     const moduleConfig = item.moduleId
@@ -42,20 +56,48 @@ export const KanbanCard = React.memo(function KanbanCard({
     return (item.icon || moduleConfig?.icon || 'box') as keyof typeof Feather.glyphMap;
   }, [item.moduleId, item.icon]);
 
+  const isProjectCard = item.moduleId === 'project';
+  const isTodo = item.status === KANBAN_STATUS.TODO;
+  const isDone = item.status === KANBAN_STATUS.DONE;
+
+  const navigateToStages = useCallback(() => {
+    if (!isProjectCard || projectNumber == null) return;
+    router.push({
+      pathname: '/stages' as any,
+      params: {
+        projectId: item.id,
+        projectNumber: String(projectNumber),
+        title: item.title,
+        subtitle: item.description ?? '',
+        script: item.script ?? '',
+      },
+    });
+  }, [isProjectCard, projectNumber, router, item]);
+
   const handlePress = useCallback(() => {
-    if (item.status === KANBAN_STATUS.TODO) return;
+    if (isProjectCard) {
+      if (item.status === KANBAN_STATUS.TODO) return;
+      onPress?.(item);
+      return;
+    }
+    if (isTodo || isDone) return;
     onPress?.(item);
-  }, [item, onPress]);
+  }, [item, onPress, isProjectCard, isTodo, isDone]);
 
   const handleNoteChange = useCallback((note: string) => {
     updateNote(item.id, note);
   }, [item.id, updateNote]);
 
-  const handleMarkDone = useCallback(() => {
-    if (item.moduleId) {
+  const handleStagePillPress = useCallback(() => {
+    if (!item.moduleId) return;
+
+    if (item.status === KANBAN_STATUS.IN_REVIEW) {
       markDone(item.moduleId);
+      return;
     }
-  }, [item.moduleId, markDone]);
+
+    onPress?.(item);
+  }, [item, markDone, onPress]);
 
   const handleExport = useCallback(async () => {
     setIsExporting(true);
@@ -70,21 +112,73 @@ export const KanbanCard = React.memo(function KanbanCard({
   }, [item.id, getProjectRow]);
 
   const handleLongPress = useCallback(() => {
-    if (item.moduleId === 'project') {
+    if (isProjectCard) {
       setShowDeleteModal(true);
     }
-  }, [item.moduleId]);
+  }, [isProjectCard]);
 
   const handleConfirmDelete = useCallback(() => {
     setShowDeleteModal(false);
     deleteProject(item.id);
   }, [deleteProject, item.id]);
 
+  const footerContent = useMemo(() => {
+    if (isProjectCard) {
+      const pills = item.status ? PROJECT_CARD_PILLS[item.status] : undefined;
+      if (!pills?.length) return null;
+
+      const leftPills = pills.filter((p) => p.side === 'left');
+      const rightPills = pills.filter((p) => p.side === 'right');
+
+      return (
+        <View style={styles.footerRow}>
+          <View style={styles.footerSide}>
+            {leftPills.map((pill) => (
+              <ActionPill
+                key={pill.label}
+                label={pill.label}
+                color={pill.color}
+                onPress={navigateToStages}
+              />
+            ))}
+          </View>
+          <View style={styles.footerSpacer} />
+          <View style={styles.footerSide}>
+            {rightPills.map((pill) => (
+              <ActionPill
+                key={pill.label}
+                label={pill.label}
+                color={pill.color}
+                onPress={navigateToStages}
+              />
+            ))}
+          </View>
+        </View>
+      );
+    }
+
+    const pillConfig = getStageCardPillConfig(item, allItems);
+    if (!pillConfig) return null;
+
+    return (
+      <View style={styles.footerRow}>
+        <View style={styles.footerSpacer} />
+        <ActionPill
+          label={pillConfig.label}
+          color={pillConfig.color}
+          onPress={handleStagePillPress}
+        />
+      </View>
+    );
+  }, [
+    isProjectCard,
+    item,
+    allItems,
+    navigateToStages,
+    handleStagePillPress,
+  ]);
+
   const effectiveWidth = cardWidth || 300;
-  const isInReview = item.status === KANBAN_STATUS.IN_REVIEW;
-  const isTodo = item.status === KANBAN_STATUS.TODO;
-  const isDone = item.status === KANBAN_STATUS.DONE;
-  const isProjectCard = item.moduleId === 'project';
 
   return (
     <>
@@ -99,8 +193,9 @@ export const KanbanCard = React.memo(function KanbanCard({
         noteText={item.quickNote ?? ''}
         isOutdated={item.isOutdated}
         isProjectCard={isProjectCard}
-        onChangeNote={handleNoteChange}
-        onMarkDone={isInReview ? handleMarkDone : undefined}
+        projectNumber={isProjectCard ? projectNumber : undefined}
+        footerContent={footerContent}
+        onChangeNote={isProjectCard ? undefined : handleNoteChange}
         onExport={isProjectCard && !isExporting ? handleExport : undefined}
         style={[
           { width: effectiveWidth },
@@ -131,5 +226,18 @@ const styles = StyleSheet.create({
   },
   wrapperDone: {
     opacity: 0.75,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    gap: spacing.sm,
+  },
+  footerSide: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  footerSpacer: {
+    flex: 1,
   },
 });

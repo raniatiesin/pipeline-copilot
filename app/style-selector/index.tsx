@@ -32,6 +32,7 @@ import {
   CollageImage,
 } from '@/components/style-selector/CollageImage';
 import { ScreenLayout } from '@/components/ui/ScreenLayout';
+import { getProjectTabs } from '@/lib/navigationTabs';
 import { KANBAN_STATUS } from '@/constants/kanbanStatus';
 import { getLineThickness } from '@/constants/line';
 import { styleMatcherData } from '@/constants/styleMatcherData';
@@ -248,6 +249,12 @@ const filterStyles = StyleSheet.create({
 function StyleSelectorContent() {
   const { width } = useWindowDimensions();
   const router = useRouter();
+  const { projectId, projectNumber, title: postName } = useLocalSearchParams<{
+    projectId?: string;
+    projectNumber?: string;
+    title?: string;
+  }>();
+  const parsedProjectNumber = projectNumber ? parseInt(projectNumber, 10) : 1;
   const [numColumns, setNumColumns] = useState<1 | 2 | 3>(2);
 
   const {
@@ -388,11 +395,12 @@ function StyleSelectorContent() {
 
   return (
     <ScreenLayout
-      tabs={[
-        { label: 'Projects', route: '/project' },
-        { label: 'Stages', route: '/stages' },
-      ]}
-      title="Style Collages"
+      tabs={getProjectTabs(
+        Number.isFinite(parsedProjectNumber) ? parsedProjectNumber : 1,
+        postName || 'Project',
+        projectId || '',
+      )}
+      title="Style Selector"
       onBack={handleBack}
       onContinue={handleContinue}
     >

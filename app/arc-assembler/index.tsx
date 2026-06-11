@@ -29,6 +29,7 @@ import { CollageOverlay } from '@/components/arc-assembler/CollageOverlay';
 import { SceneModePage } from '@/components/arc-assembler/SceneModePage';
 import { SubjectModePage } from '@/components/arc-assembler/SubjectModePage';
 import { ScreenLayout } from '@/components/ui/ScreenLayout';
+import { getProjectTabs } from '@/lib/navigationTabs';
 import { KANBAN_STATUS } from '@/constants/kanbanStatus';
 import { getLineThickness } from '@/constants/line';
 import { borderRadius, colors, shadows, spacing, typography } from '@/constants/theme';
@@ -127,6 +128,12 @@ function ArcAssemblerContent() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
+  const { projectId, projectNumber, title: postName } = useLocalSearchParams<{
+    projectId?: string;
+    projectNumber?: string;
+    title?: string;
+  }>();
+  const parsedProjectNumber = projectNumber ? parseInt(projectNumber, 10) : 1;
 
   useEffect(() => {
     if (stageCallbacks.getModuleStatus('arc-assembler') === KANBAN_STATUS.UP_NEXT) {
@@ -181,10 +188,11 @@ function ArcAssemblerContent() {
 
   return (
     <ScreenLayout
-      tabs={[
-        { label: 'Projects', route: '/project' },
-        { label: 'Pipeline', route: '/stages' },
-      ]}
+      tabs={getProjectTabs(
+        Number.isFinite(parsedProjectNumber) ? parsedProjectNumber : 1,
+        postName || 'Project',
+        projectId || '',
+      )}
       title="Arc Assembler"
       onBack={handleBack}
       onContinue={handleContinue}

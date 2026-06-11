@@ -35,6 +35,7 @@ import {
 
 import { Line } from '../../components/ui/Line';
 import { ScreenLayout } from '../../components/ui/ScreenLayout';
+import { getProjectTabs } from '../../lib/navigationTabs';
 import { KANBAN_STATUS } from '../../constants/kanbanStatus';
 import { getLineThickness, THE_LINE } from '../../constants/line';
 import { borderRadius, colors, shadows, spacing, typography } from '../../constants/theme';
@@ -371,7 +372,12 @@ function EmptyProfiles() {
 
 export default function EntityEditorScreen() {
   const { height: windowHeight } = useWindowDimensions();
-  const { projectId } = useLocalSearchParams<{ projectId?: string }>();
+  const { projectId, projectNumber, title: postName } = useLocalSearchParams<{
+    projectId?: string;
+    projectNumber?: string;
+    title?: string;
+  }>();
+  const parsedProjectNumber = projectNumber ? parseInt(projectNumber, 10) : 1;
   const stripHeight = Math.max(240, Math.round(windowHeight * 0.42));
 
   const { state, setScenes, setSubjectCategories } = useSceneSegmentation();
@@ -563,11 +569,11 @@ export default function EntityEditorScreen() {
 
   return (
     <ScreenLayout
-      tabs={[
-        { label: 'Projects', route: '/project' },
-        { label: 'Stages', route: '/stages' },
-        { label: 'Entity Editor', route: '/scene-segmentation/entity-editor' },
-      ]}
+      tabs={getProjectTabs(
+        Number.isFinite(parsedProjectNumber) ? parsedProjectNumber : 1,
+        postName || 'Project',
+        projectId || '',
+      )}
       title="Entity Editor"
       progress={66}
       onBack={handleBack}

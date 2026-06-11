@@ -216,6 +216,22 @@ export interface KanbanContextValue {
 }
 
 // ============================================
+// NAVIGATION
+// ============================================
+
+/**
+ * A single navigation tab in the breadcrumb trail.
+ */
+export interface NavigationTab {
+  /** Display label for the tab */
+  label: string;
+  /** Route to navigate to (omit for current/non-navigable) */
+  route?: string;
+  /** Route parameters */
+  params?: Record<string, string>;
+}
+
+// ============================================
 // COMPONENT PROPS
 // ============================================
 
@@ -223,6 +239,8 @@ export interface KanbanCardProps {
   item: KanbanItem;
   onPress?: (item: KanbanItem) => void;
   cardWidth?: number;
+  /** Derived project number for Projects Kanban cards */
+  projectNumber?: number;
 }
 
 export interface KanbanColumnProps {
@@ -232,6 +250,7 @@ export interface KanbanColumnProps {
   onCardPress?: (item: KanbanItem) => void;
   columnWidth: number;
   onAddProject?: () => void;
+  projectNumbers?: Record<string, number>;
 }
 
 export interface KanbanTabsProps {
@@ -243,4 +262,10 @@ export interface KanbanBoardProps {
   onAction?: (status: KanbanStatus) => void;
   onPageChange?: (pageIndex: number) => void;
   onAddProject?: () => void;
+  /** Scroll to this column on mount / when the key changes (e.g. screen focus) */
+  autoFocusStatus?: KanbanStatus;
+  /** Bump to re-trigger auto-focus scroll after returning from a work screen */
+  autoFocusKey?: number;
+  /** Derived project numbers for Projects Kanban cards */
+  projectNumbers?: Record<string, number>;
 }

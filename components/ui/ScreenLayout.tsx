@@ -67,6 +67,8 @@ export interface ScreenLayoutProps {
   continueLabel?: string;
   /** Disable the Continue button. */
   continueDisabled?: boolean;
+  /** Override background color for the Continue button */
+  continueColor?: string;
   /** SafeAreaView edges. @default ['top'] */
   edges?: ('top' | 'bottom' | 'left' | 'right')[];
   /** Whether to show footer divider + footer. @default true when onContinue is provided */
@@ -89,6 +91,7 @@ export function ScreenLayout({
   onContinue,
   continueLabel,
   continueDisabled,
+  continueColor,
   edges = ['top'],
   showFooter,
 }: ScreenLayoutProps) {
@@ -120,6 +123,7 @@ export function ScreenLayout({
               onContinue={onContinue}
               continueLabel={continueLabel}
               continueDisabled={continueDisabled}
+              continueColor={continueColor}
             />
           )}
         </>

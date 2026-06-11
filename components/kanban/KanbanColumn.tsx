@@ -75,6 +75,7 @@ export function KanbanColumn({
   onCardPress,
   columnWidth,
   onAddProject,
+  projectNumbers,
 }: KanbanColumnProps) {
   const config = KANBAN_STATUS_CONFIG[status];
   const colorSet = kanbanColors[config.colorKey];
@@ -86,6 +87,7 @@ export function KanbanColumn({
         item={item}
         onPress={onCardPress}
         cardWidth={cardWidth}
+        projectNumber={projectNumbers?.[item.id]}
       />
     </View>
   );

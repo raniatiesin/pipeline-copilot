@@ -60,6 +60,8 @@ interface ButtonProps {
   icon?: ReactNode;
   /** Show zap icon for action variant (default: true) */
   showZapIcon?: boolean;
+  /** Override background color for action variant */
+  actionColor?: string;
 }
 
 // ============================================
@@ -140,6 +142,7 @@ export const Button: React.FC<ButtonProps> = ({
   size = 'default',
   icon,
   showZapIcon = true,
+  actionColor,
 }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -188,6 +191,7 @@ export const Button: React.FC<ButtonProps> = ({
         <Animated.View
           style={[
             styles.actionButton,
+            actionColor ? { backgroundColor: actionColor } : null,
             disabled && styles.actionButtonDisabled,
             { transform: [{ scale: scaleAnim }] },
           ]}

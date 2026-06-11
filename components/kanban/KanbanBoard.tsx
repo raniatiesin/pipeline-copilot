@@ -9,7 +9,7 @@
  * @module components/kanban/KanbanBoard
  */
 
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -38,9 +38,13 @@ export function KanbanBoard({
   onAction,
   onPageChange,
   onAddProject,
+  autoFocusStatus,
+  autoFocusKey = 0,
+  projectNumbers,
 }: KanbanBoardProps) {
   const { width } = useWindowDimensions();
   const kanban = useKanban();
+  const scrollRef = useRef<ScrollView>(null);
 
   const columnWidth = width * 0.88;
   const columnGap = kanbanLayout.columnGap;
@@ -65,6 +69,24 @@ export function KanbanBoard({
 
   const previousPageRef = useRef(0);
 
+  const scrollToStatus = useCallback(
+    (status: KanbanStatus) => {
+      const index = KANBAN_STATUS_ORDER.indexOf(status);
+      if (index < 0) return;
+      const offsetX = index * snapInterval;
+      scrollRef.current?.scrollTo({ x: offsetX, animated: true });
+      previousPageRef.current = index;
+      kanban.setPageIndex(index);
+      onPageChange?.(index);
+    },
+    [snapInterval, kanban, onPageChange],
+  );
+
+  useEffect(() => {
+    if (!autoFocusStatus) return;
+    scrollToStatus(autoFocusStatus);
+  }, [autoFocusStatus, autoFocusKey, scrollToStatus]);
+
   const handleScrollEnd = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const offsetX = event.nativeEvent.contentOffset.x;
@@ -78,16 +100,20 @@ export function KanbanBoard({
 
       kanban.setPageIndex(clampedIndex);
       onPageChange?.(clampedIndex);
+      onAction?.(KANBAN_STATUS_ORDER[clampedIndex]);
     },
-    [snapInterval, kanban, onPageChange],
+    [snapInterval, kanban, onPageChange, onAction],
   );
 
-  const inProgressIndex = KANBAN_STATUS_ORDER.indexOf(KANBAN_STATUS.IN_PROGRESS);
-  const initialOffset = inProgressIndex * snapInterval;
+  const initialFocusIndex = autoFocusStatus
+    ? KANBAN_STATUS_ORDER.indexOf(autoFocusStatus)
+    : 0;
+  const initialOffset = Math.max(0, initialFocusIndex) * snapInterval;
 
   return (
     <View style={styles.container}>
       <ScrollView
+        ref={scrollRef}
         horizontal
         decelerationRate="fast"
         snapToInterval={snapInterval}
@@ -117,6 +143,7 @@ export function KanbanBoard({
               onCardPress={onItemPress}
               columnWidth={columnWidth}
               onAddProject={status === KANBAN_STATUS.TODO ? onAddProject : undefined}
+              projectNumbers={projectNumbers}
             />
           </View>
         ))}

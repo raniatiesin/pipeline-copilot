@@ -39,22 +39,9 @@ import { getLineThickness } from '../../constants/line';
 import { pillSizes } from '../../constants/pills';
 import { borderRadius, colors, shadows, spacing, typography } from '../../constants/theme';
 import { useSyncStatus } from '../../hooks/useSyncStatus';
+import type { NavigationTab } from '../../types/kanban';
 
-// ============================================
-// TYPES
-// ============================================
-
-/**
- * A single navigation tab in the breadcrumb trail.
- */
-export interface NavigationTab {
-  /** Display label for the tab */
-  label: string;
-  /** Route to navigate to (omit for current/non-navigable) */
-  route?: string;
-  /** Route parameters */
-  params?: Record<string, string>;
-}
+export type { NavigationTab };
 
 /**
  * Props for the NavigationHeader component.

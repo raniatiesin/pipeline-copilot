@@ -17,6 +17,7 @@
 import { KANBAN_STATUS } from '@/constants/kanbanStatus';
 import { MODULE_ORDER } from '@/constants/kanbanTheme';
 import type { KanbanItem, KanbanStatus } from '@/types/kanban';
+import { getActiveColumnStatus } from '@/lib/kanbanLogic';
 import { powerSyncDb } from './powersync';
 
 // ============================================
@@ -236,13 +237,14 @@ export function computeProjectProgress(cardStatusesJson: unknown): number {
  * (the card shown in the Projects Kanban).
  */
 export function rowToProjectItem(row: PipelineRow): KanbanItem {
+  const stageItems = rowToStageItems(row);
   return {
     id: row.id,
     title: row.prospect_name,
     description: row.post_name,
     moduleId: 'project',
     icon: 'film',
-    status: KANBAN_STATUS.IN_PROGRESS,
+    status: getActiveColumnStatus(stageItems),
     order: new Date(row.created_at).getTime(),
     progress: computeProjectProgress(row.card_statuses),
     priority: 'high',

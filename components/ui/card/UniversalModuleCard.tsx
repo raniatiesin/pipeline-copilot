@@ -23,11 +23,11 @@ import {
 } from 'react-native';
 
 import { getStatusAccentColor } from '@/constants/kanbanTheme';
-import { getLineThickness } from '@/constants/line';
 import { borderRadius, colors, spacing, typography } from '@/constants/theme';
 
 import { CardContainer } from './CardContainer';
 import { CardDescriptionProgressRow } from './CardDescriptionProgressRow';
+import { CardFooter } from './CardFooter';
 import { CardIdentityPill } from './CardIdentityPill';
 import { CardNotesSheet } from './CardNotesSheet';
 import { CardProgressBar } from './CardProgressBar';
@@ -45,10 +45,11 @@ export interface UniversalModuleCardProps {
   noteText?: string;
   isOutdated?: boolean;
   isProjectCard?: boolean;
+  projectNumber?: number;
+  footerContent?: React.ReactNode;
   onChangeNote?: (note: string) => void;
   onPress?: () => void;
   onLongPress?: () => void;
-  onMarkDone?: () => void;
   onExport?: () => void;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
@@ -69,10 +70,11 @@ export const UniversalModuleCard = memo(function UniversalModuleCard({
   noteText = '',
   isOutdated = false,
   isProjectCard = false,
+  projectNumber,
+  footerContent,
   onChangeNote,
   onPress,
   onLongPress,
-  onMarkDone,
   onExport,
   style,
   accessibilityLabel,
@@ -94,8 +96,9 @@ export const UniversalModuleCard = memo(function UniversalModuleCard({
 
   const accentColor = status ? getStatusAccentColor(status) : null;
   const progressColor = accentColor ?? colors.accent;
-  const isInReview = status === 'in-review';
   const isTodo = status === 'todo';
+  const isDone = status === 'done';
+  const isPressDisabled = isTodo || (isDone && !isProjectCard);
 
   const openNotes = useCallback((event: GestureResponderEvent) => {
     event.stopPropagation();
@@ -115,7 +118,7 @@ export const UniversalModuleCard = memo(function UniversalModuleCard({
       <CardContainer
         onPress={onPress}
         onLongPress={onLongPress}
-        disabled={isTodo}
+        disabled={isPressDisabled}
         style={[styles.card, style]}
         accessibilityLabel={accessibilityLabel}
         accessibilityHint={accessibilityHint}
@@ -144,28 +147,17 @@ export const UniversalModuleCard = memo(function UniversalModuleCard({
               style={styles.progressBar}
             />
 
-            {onChangeNote ? (
+            {onChangeNote || projectNumber != null ? (
               <CardDescriptionProgressRow
                 description={previewText}
                 hasNote={hasNote}
-                onBookmarkPress={openNotes}
+                onBookmarkPress={onChangeNote ? openNotes : undefined}
+                projectNumber={projectNumber}
               />
             ) : (
               <Text style={styles.description} numberOfLines={2}>
                 {previewText}
               </Text>
-            )}
-
-            {isInReview && onMarkDone && (
-              <TouchableOpacity
-                onPress={onMarkDone}
-                activeOpacity={0.8}
-                style={styles.markDoneButton}
-                accessibilityRole="button"
-                accessibilityLabel={`Mark ${title} as done`}
-              >
-                <Text style={styles.markDoneText}>MARK AS DONE</Text>
-              </TouchableOpacity>
             )}
 
             {isProjectCard && onExport && (
@@ -181,6 +173,12 @@ export const UniversalModuleCard = memo(function UniversalModuleCard({
             )}
           </View>
         </View>
+
+        {footerContent ? (
+          <CardFooter bordered={false} muted={false}>
+            {footerContent}
+          </CardFooter>
+        ) : null}
       </CardContainer>
 
       <CardNotesSheet
@@ -227,21 +225,6 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     paddingHorizontal: spacing.sm,
     paddingBottom: spacing.xs,
-  },
-  markDoneButton: {
-    alignSelf: 'flex-start',
-    marginHorizontal: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderWidth: getLineThickness('base'),
-    borderColor: colors.accent,
-    borderRadius: borderRadius.sm,
-  },
-  markDoneText: {
-    ...typography.caption,
-    color: colors.accent,
-    textTransform: 'uppercase',
-    fontWeight: '700',
   },
   exportButton: {
     alignSelf: 'flex-end',

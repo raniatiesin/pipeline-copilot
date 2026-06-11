@@ -40,6 +40,7 @@ import {
 } from '../../components/scene-segmentation/scene-mapper';
 import { KANBAN_STATUS } from '../../constants/kanbanStatus';
 import { ScreenLayout } from '../../components/ui/ScreenLayout';
+import { getProjectTabs } from '../../lib/navigationTabs';
 import { stageCallbacks } from '../../lib/stageCallbacks';
 import { getProject, updateProject } from '../../lib/database';
 import { parseScenes } from '../../lib/arcAssembler';
@@ -54,7 +55,12 @@ import type { CardLayoutRect } from '../../types/scene-mapper-gestures';
 // ============================================
 
 export default function BeatButcherScreen() {
-  const { projectId } = useLocalSearchParams<{ projectId?: string }>();
+  const { projectId, projectNumber, title: postName } = useLocalSearchParams<{
+    projectId?: string;
+    projectNumber?: string;
+    title?: string;
+  }>();
+  const parsedProjectNumber = projectNumber ? parseInt(projectNumber, 10) : 1;
   const {
     state,
     splitSceneAt,
@@ -360,10 +366,11 @@ export default function BeatButcherScreen() {
 
   return (
     <ScreenLayout
-      tabs={[
-        { label: 'Project', route: '/project' },
-        { label: 'Beat Butcher', route: '/scene-segmentation/beat-butcher' },
-      ]}
+      tabs={getProjectTabs(
+        Number.isFinite(parsedProjectNumber) ? parsedProjectNumber : 1,
+        postName || 'Project',
+        projectId || '',
+      )}
       title="Beat Butcher"
       progress={33}
       onBack={handleBack}

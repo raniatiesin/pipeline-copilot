@@ -54,6 +54,8 @@ export interface FooterActionsProps {
   continueLabel?: string;
   /** Disable the Continue button. */
   continueDisabled?: boolean;
+  /** Override background color for the Continue button */
+  continueColor?: string;
 }
 
 // ============================================
@@ -66,6 +68,7 @@ export const FooterActions: React.FC<FooterActionsProps> = ({
   onContinue,
   continueLabel = 'Continue',
   continueDisabled = false,
+  continueColor,
 }) => {
   const insets = useSafeAreaInsets();
 
@@ -97,6 +100,7 @@ export const FooterActions: React.FC<FooterActionsProps> = ({
         disabled={continueDisabled}
         variant="action"
         showZapIcon={false}
+        actionColor={continueColor}
         icon={
           <Feather name="arrow-right" size={18} color={colors.surface} />
         }
