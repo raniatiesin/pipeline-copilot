@@ -1,50 +1,47 @@
-import { colors } from '@/constants/theme';
 import type { KanbanItem, KanbanStatus } from '@/types/kanban';
 
 import { isSoleIncompleteCard } from './kanbanLogic';
 
 const FINISH_COLOR = '#7c3aed';
 
-export const STAGE_CARD_PILL: Partial<Record<KanbanStatus, { label: string; color: string }>> = {
-  'up-next': { label: 'Continue', color: colors.secondary },
-  'in-progress': { label: 'Continue', color: colors.secondary },
-  'in-review': { label: 'Mark Done', color: colors.accent },
-};
-
 export const FOOTER_PILL: Partial<Record<KanbanStatus, { label: string; color: string }>> = {
-  'up-next': { label: 'Start', color: colors.accentAlt },
-  'in-progress': { label: 'Continue', color: colors.secondary },
+  'up-next': { label: 'Start', color: '#ffc22a' },
+  'in-progress': { label: 'Continue', color: '#e8824f' },
   'in-review': { label: 'Review', color: FINISH_COLOR },
 };
 
+/**
+ * Project card action pills — each pill is labeled and colored as its DESTINATION column.
+ * Spec: card's current column → pills (label and style match destination column header pill).
+ */
 export const PROJECT_CARD_PILLS: Partial<
-  Record<KanbanStatus, Array<{ label: string; color: string; side: 'left' | 'right' }>>
+  Record<KanbanStatus, Array<{ side: 'left' | 'right'; label: string; targetStatus: KanbanStatus }>>
 > = {
-  'up-next': [{ label: 'Start', color: colors.secondary, side: 'right' }],
-  // TODO(archive): left "Archive" pill — needs an `archived` column
-  'in-progress': [{ label: 'Continue', color: colors.secondary, side: 'right' }],
-  'in-review': [
-    { label: 'Edit', color: colors.secondary, side: 'left' },
-    { label: 'Finish', color: colors.accent, side: 'right' },
+  // Waiting: 1 pill, right → "Up Next"
+  waiting: [{ side: 'right', label: 'Up Next', targetStatus: 'up-next' }],
+  // Up Next: left "Waiting" — right "In Progress"
+  'up-next': [
+    { side: 'left', label: 'Waiting', targetStatus: 'waiting' },
+    { side: 'right', label: 'In Progress', targetStatus: 'in-progress' },
   ],
-  done: [{ label: 'Review', color: FINISH_COLOR, side: 'left' }],
+  // In Progress: left "Up Next" — right "In Review"
+  'in-progress': [
+    { side: 'left', label: 'Up Next', targetStatus: 'up-next' },
+    { side: 'right', label: 'In Review', targetStatus: 'in-review' },
+  ],
+  // In Review: left "In Progress" — right "Done"
+  'in-review': [
+    { side: 'left', label: 'In Progress', targetStatus: 'in-progress' },
+    { side: 'right', label: 'Done', targetStatus: 'done' },
+  ],
+  // Done: 1 pill, left "In Review"
+  done: [{ side: 'left', label: 'In Review', targetStatus: 'in-review' }],
 };
 
-export function getStageCardPillConfig(
+export function getProjectCardPillConfig(
   item: KanbanItem,
-  allItems: KanbanItem[],
-): { label: string; color: string } | undefined {
-  const base = item.status ? STAGE_CARD_PILL[item.status] : undefined;
-  if (!base) return undefined;
-
-  if (
-    item.status === 'in-progress' &&
-    isSoleIncompleteCard(item, allItems)
-  ) {
-    return { label: 'Finish', color: FINISH_COLOR };
-  }
-
-  return base;
+): Array<{ side: 'left' | 'right'; label: string; targetStatus: KanbanStatus }> | undefined {
+  return item.status ? PROJECT_CARD_PILLS[item.status] : undefined;
 }
 
 export function getFooterPillConfig(

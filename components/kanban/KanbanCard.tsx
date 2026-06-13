@@ -8,22 +8,19 @@
  * @module components/kanban/KanbanCard
  */
 
-import { Feather } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { ActionPill } from '@/components/ui/ActionPill';
+import { StatusPill } from '@/components/ui/StatusPill';
 import { KANBAN_STATUS } from '@/constants/kanbanStatus';
-import { MODULE_CONFIG } from '@/constants/kanbanTheme';
 import { spacing } from '@/constants/theme';
 import { useKanban } from '@/hooks/useKanban';
-import {
-  getStageCardPillConfig,
-  PROJECT_CARD_PILLS,
-} from '@/lib/kanbanActionPills';
 import { exportPipeline } from '@/lib/exportPipeline';
+import {
+  getProjectCardPillConfig,
+} from '@/lib/kanbanActionPills';
 import type { KanbanCardProps } from '@/types/kanban';
 
 import { ConfirmModal } from '../ui/ConfirmModal';
@@ -40,8 +37,8 @@ export const KanbanCard = React.memo(function KanbanCard({
   projectNumber,
 }: KanbanCardProps) {
   const router = useRouter();
-  const { state, updateNote, markDone, getProjectRow, deleteProject } = useKanban();
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const { state, updateNote, getProjectRow, deleteProject } = useKanban();
+  const [showActionsModal, setShowActionsModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   const allItems = useMemo(
@@ -49,15 +46,8 @@ export const KanbanCard = React.memo(function KanbanCard({
     [state.items],
   );
 
-  const iconName = useMemo(() => {
-    const moduleConfig = item.moduleId
-      ? MODULE_CONFIG[item.moduleId as keyof typeof MODULE_CONFIG]
-      : null;
-    return (item.icon || moduleConfig?.icon || 'box') as keyof typeof Feather.glyphMap;
-  }, [item.moduleId, item.icon]);
-
   const isProjectCard = item.moduleId === 'project';
-  const isTodo = item.status === KANBAN_STATUS.TODO;
+  const isWaiting = item.status === KANBAN_STATUS.WAITING;
   const isDone = item.status === KANBAN_STATUS.DONE;
 
   const navigateToStages = useCallback(() => {
@@ -74,30 +64,22 @@ export const KanbanCard = React.memo(function KanbanCard({
     });
   }, [isProjectCard, projectNumber, router, item]);
 
+  const navigateToProject = useCallback(() => {
+    router.push('/project' as any);
+  }, [router]);
+
   const handlePress = useCallback(() => {
     if (isProjectCard) {
-      if (item.status === KANBAN_STATUS.TODO) return;
+      if (isWaiting) return;
       onPress?.(item);
       return;
     }
-    if (isTodo || isDone) return;
     onPress?.(item);
-  }, [item, onPress, isProjectCard, isTodo, isDone]);
+  }, [item, onPress, isProjectCard, isWaiting]);
 
   const handleNoteChange = useCallback((note: string) => {
     updateNote(item.id, note);
   }, [item.id, updateNote]);
-
-  const handleStagePillPress = useCallback(() => {
-    if (!item.moduleId) return;
-
-    if (item.status === KANBAN_STATUS.IN_REVIEW) {
-      markDone(item.moduleId);
-      return;
-    }
-
-    onPress?.(item);
-  }, [item, markDone, onPress]);
 
   const handleExport = useCallback(async () => {
     setIsExporting(true);
@@ -113,70 +95,63 @@ export const KanbanCard = React.memo(function KanbanCard({
 
   const handleLongPress = useCallback(() => {
     if (isProjectCard) {
-      setShowDeleteModal(true);
+      setShowActionsModal(true);
     }
   }, [isProjectCard]);
 
   const handleConfirmDelete = useCallback(() => {
-    setShowDeleteModal(false);
+    setShowActionsModal(false);
     deleteProject(item.id);
   }, [deleteProject, item.id]);
 
+  const handlePillPress = useCallback(
+    (targetStatus: string) => {
+      // Special case: when on Waiting column, the only pill is "Up Next" → navigate to Projects Kanban
+      if (isProjectCard && item.status === KANBAN_STATUS.WAITING) {
+        navigateToProject();
+        return;
+      }
+      // All other pills → navigate to Stages
+      navigateToStages();
+    },
+    [item.status, isProjectCard, navigateToStages, navigateToProject],
+  );
+
   const footerContent = useMemo(() => {
-    if (isProjectCard) {
-      const pills = item.status ? PROJECT_CARD_PILLS[item.status] : undefined;
-      if (!pills?.length) return null;
+    if (!isProjectCard) return null;
 
-      const leftPills = pills.filter((p) => p.side === 'left');
-      const rightPills = pills.filter((p) => p.side === 'right');
+    const pills = getProjectCardPillConfig(item);
+    if (!pills?.length) return null;
 
-      return (
-        <View style={styles.footerRow}>
-          <View style={styles.footerSide}>
-            {leftPills.map((pill) => (
-              <ActionPill
-                key={pill.label}
-                label={pill.label}
-                color={pill.color}
-                onPress={navigateToStages}
-              />
-            ))}
-          </View>
-          <View style={styles.footerSpacer} />
-          <View style={styles.footerSide}>
-            {rightPills.map((pill) => (
-              <ActionPill
-                key={pill.label}
-                label={pill.label}
-                color={pill.color}
-                onPress={navigateToStages}
-              />
-            ))}
-          </View>
-        </View>
-      );
-    }
-
-    const pillConfig = getStageCardPillConfig(item, allItems);
-    if (!pillConfig) return null;
+    const leftPills = pills.filter((p) => p.side === 'left');
+    const rightPills = pills.filter((p) => p.side === 'right');
 
     return (
       <View style={styles.footerRow}>
+        <View style={styles.footerSide}>
+          {leftPills.map((pill) => (
+            <StatusPill
+              key={pill.label}
+              status={pill.targetStatus}
+              label={pill.label}
+              onPress={() => handlePillPress(pill.targetStatus)}
+            />
+          ))}
+        </View>
         <View style={styles.footerSpacer} />
-        <ActionPill
-          label={pillConfig.label}
-          color={pillConfig.color}
-          onPress={handleStagePillPress}
-        />
+        <View style={styles.footerSide}>
+          {rightPills.map((pill) => (
+            <StatusPill
+              key={pill.label}
+              status={pill.targetStatus}
+              label={pill.label}
+              onPress={() => handlePillPress(pill.targetStatus)}
+            />
+          ))}
+        </View>
       </View>
     );
-  }, [
-    isProjectCard,
-    item,
-    allItems,
-    navigateToStages,
-    handleStagePillPress,
-  ]);
+  }, [isProjectCard, item, handlePillPress]);
 
   const effectiveWidth = cardWidth || 300;
 
@@ -185,7 +160,7 @@ export const KanbanCard = React.memo(function KanbanCard({
       <UniversalModuleCard
         onPress={handlePress}
         onLongPress={isProjectCard ? handleLongPress : undefined}
-        iconName={iconName}
+        iconName={'film'}
         title={item.title}
         progressPercent={item.progress ?? 0}
         status={item.status}
@@ -196,32 +171,57 @@ export const KanbanCard = React.memo(function KanbanCard({
         projectNumber={isProjectCard ? projectNumber : undefined}
         footerContent={footerContent}
         onChangeNote={isProjectCard ? undefined : handleNoteChange}
-        onExport={isProjectCard && !isExporting ? handleExport : undefined}
         style={[
           { width: effectiveWidth },
-          isTodo && styles.wrapperTodo,
+          isWaiting && styles.wrapperWaiting,
           isDone && styles.wrapperDone,
         ]}
         accessibilityLabel={`${item.title}. ${item.description || ''}`}
-        accessibilityHint={isTodo ? 'Locked' : 'Double tap to open'}
+        accessibilityHint={isWaiting ? 'Locked' : 'Double tap to open'}
       />
 
       <ConfirmModal
-        visible={showDeleteModal}
-        title="Delete project?"
-        message={`This will permanently remove "${item.title}" and all its pipeline data.`}
+        visible={showActionsModal}
+        title="Project actions"
+        message={`"${item.title}"`}
+        extraActions={
+          <ConfirmModalAction
+            label="Copy JSON"
+            onPress={handleExport}
+            isLoading={isExporting}
+          />
+        }
         confirmLabel="Delete"
-        cancelLabel="Keep it"
+        cancelLabel="Cancel"
         destructive
         onConfirm={handleConfirmDelete}
-        onCancel={() => setShowDeleteModal(false)}
+        onCancel={() => setShowActionsModal(false)}
       />
     </>
   );
 });
 
+/**
+ * Small inline action button for the ConfirmModal extra actions.
+ */
+function ConfirmModalAction({
+  label,
+  onPress,
+  isLoading,
+}: {
+  label: string;
+  onPress: () => void;
+  isLoading?: boolean;
+}) {
+  return (
+    <View style={styles.modalActionRow}>
+      <StatusPill status="done" label={label} onPress={isLoading ? undefined : onPress} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  wrapperTodo: {
+  wrapperWaiting: {
     opacity: 0.45,
   },
   wrapperDone: {
@@ -239,5 +239,8 @@ const styles = StyleSheet.create({
   },
   footerSpacer: {
     flex: 1,
+  },
+  modalActionRow: {
+    marginBottom: spacing.sm,
   },
 });

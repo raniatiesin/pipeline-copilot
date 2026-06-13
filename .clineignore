@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+.git/
+**/public/images/**
+**/assets/img/**
+**/Style Collages/**
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.webp

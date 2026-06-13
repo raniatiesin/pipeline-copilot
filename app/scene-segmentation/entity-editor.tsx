@@ -29,22 +29,22 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
   useWindowDimensions,
+  View,
 } from 'react-native';
 
 import { Line } from '../../components/ui/Line';
 import { ScreenLayout } from '../../components/ui/ScreenLayout';
-import { getProjectTabs } from '../../lib/navigationTabs';
 import { KANBAN_STATUS } from '../../constants/kanbanStatus';
 import { getLineThickness, THE_LINE } from '../../constants/line';
 import { borderRadius, colors, shadows, spacing, typography } from '../../constants/theme';
-import { useEntityEditor, getSubjectColor, SUBJECT_COLORS } from '../../hooks/useEntityEditor';
+import { getSubjectColor, useEntityEditor } from '../../hooks/useEntityEditor';
 import { useSceneSegmentation } from '../../hooks/useSceneSegmentation';
-import { stageCallbacks } from '../../lib/stageCallbacks';
-import { getProject, deriveStageStatus, updateCardProgress, updateProject } from '../../lib/database';
-import type { CardStatuses } from '../../lib/database';
 import { parseScenes, parseSubjectCategories } from '../../lib/arcAssembler';
+import type { CardStatuses } from '../../lib/database';
+import { deriveStageStatus, getProject, updateCardProgress, updateProject } from '../../lib/database';
+import { getProjectTabs } from '../../lib/navigationTabs';
+import { stageCallbacks } from '../../lib/stageCallbacks';
 import type { Scene, Subject, SubjectCategory } from '../../types';
 
 // ============================================
@@ -460,7 +460,7 @@ export default function EntityEditorScreen() {
       const styleStatus = statuses['style-selector'];
       const styleResolved = styleStatus
         ? deriveStageStatus('style-selector', styleStatus, statuses)
-        : KANBAN_STATUS.TODO;
+        : KANBAN_STATUS.WAITING;
       const styleDone =
         styleResolved === KANBAN_STATUS.IN_REVIEW ||
         styleResolved === KANBAN_STATUS.DONE;

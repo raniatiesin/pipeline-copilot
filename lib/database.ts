@@ -16,8 +16,8 @@
 
 import { KANBAN_STATUS } from '@/constants/kanbanStatus';
 import { MODULE_ORDER } from '@/constants/kanbanTheme';
-import type { KanbanItem, KanbanStatus } from '@/types/kanban';
 import { getActiveColumnStatus } from '@/lib/kanbanLogic';
+import type { KanbanItem, KanbanStatus } from '@/types/kanban';
 import { powerSyncDb } from './powersync';
 
 // ============================================
@@ -104,7 +104,7 @@ export function deriveStageStatus(
   if (progress >= 100) return KANBAN_STATUS.IN_REVIEW;
   if (progress > 0) return KANBAN_STATUS.IN_PROGRESS;
   if (isModuleUnlocked(moduleId, statuses)) return KANBAN_STATUS.UP_NEXT;
-  return KANBAN_STATUS.TODO;
+  return KANBAN_STATUS.WAITING;
 }
 
 const STAGE_CONFIG: Record<string, {

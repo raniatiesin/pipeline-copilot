@@ -15,7 +15,6 @@ import React, { memo, useCallback, useMemo, useState } from 'react';
 import {
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
   type GestureResponderEvent,
   type StyleProp,
@@ -50,7 +49,6 @@ export interface UniversalModuleCardProps {
   onChangeNote?: (note: string) => void;
   onPress?: () => void;
   onLongPress?: () => void;
-  onExport?: () => void;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
   accessibilityHint?: string;
@@ -75,7 +73,6 @@ export const UniversalModuleCard = memo(function UniversalModuleCard({
   onChangeNote,
   onPress,
   onLongPress,
-  onExport,
   style,
   accessibilityLabel,
   accessibilityHint,
@@ -96,9 +93,9 @@ export const UniversalModuleCard = memo(function UniversalModuleCard({
 
   const accentColor = status ? getStatusAccentColor(status) : null;
   const progressColor = accentColor ?? colors.accent;
-  const isTodo = status === 'todo';
+  const isWaiting = status === 'waiting';
   const isDone = status === 'done';
-  const isPressDisabled = isTodo || (isDone && !isProjectCard);
+  const isPressDisabled = isWaiting || (isDone && !isProjectCard);
 
   const openNotes = useCallback((event: GestureResponderEvent) => {
     event.stopPropagation();
@@ -159,18 +156,6 @@ export const UniversalModuleCard = memo(function UniversalModuleCard({
                 {previewText}
               </Text>
             )}
-
-            {isProjectCard && onExport && (
-              <TouchableOpacity
-                onPress={onExport}
-                activeOpacity={0.8}
-                style={styles.exportButton}
-                accessibilityRole="button"
-                accessibilityLabel={`Export ${title}`}
-              >
-                <Feather name="copy" size={16} color={colors.text.secondary} />
-              </TouchableOpacity>
-            )}
           </View>
         </View>
 
@@ -205,10 +190,12 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     flexDirection: 'row',
+    minHeight: 80, // ensures accent bar has full height even when content is minimal
   },
   accentBar: {
     width: 4,
     alignSelf: 'stretch',
+    height: '100%', // spans the full height of the card body
   },
   accentBarPlaceholder: {
     width: 4,
@@ -225,10 +212,5 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     paddingHorizontal: spacing.sm,
     paddingBottom: spacing.xs,
-  },
-  exportButton: {
-    alignSelf: 'flex-end',
-    marginHorizontal: spacing.sm,
-    padding: spacing.xxs,
   },
 });

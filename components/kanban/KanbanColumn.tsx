@@ -17,38 +17,13 @@ import {
   View,
 } from 'react-native';
 
-import { KANBAN_STATUS, KANBAN_STATUS_CONFIG } from '@/constants/kanbanStatus';
-import { kanbanColors } from '@/constants/kanbanTheme';
-import { getLineThickness } from '@/constants/line';
-import { pillSizes } from '@/constants/pills';
+import { StatusPill } from '@/components/ui/StatusPill';
+import { KANBAN_STATUS } from '@/constants/kanbanStatus';
 import { borderRadius, colors, spacing, typography } from '@/constants/theme';
 import type { KanbanColumnProps, KanbanItem } from '@/types/kanban';
 
 import { AddProjectButton } from './AddProjectButton';
 import { KanbanCard } from './KanbanCard';
-
-// ============================================
-// COLUMN TAB (COLORED PILL)
-// ============================================
-
-interface ColumnTabProps {
-  label: string;
-  count: number;
-  colorSet: (typeof kanbanColors)[keyof typeof kanbanColors];
-}
-
-function ColumnTab({ label, count, colorSet }: ColumnTabProps) {
-  return (
-    <View style={styles.tabContainer} pointerEvents="none">
-      <View style={[styles.tab, { backgroundColor: colorSet.pill }]}>
-        <Text style={styles.tabLabel}>{label}</Text>
-        <View style={[styles.countBadge, { backgroundColor: colorSet.background }]}>
-          <Text style={styles.countText}>{count}</Text>
-        </View>
-      </View>
-    </View>
-  );
-}
 
 // ============================================
 // EMPTY STATE
@@ -77,8 +52,6 @@ export function KanbanColumn({
   onAddProject,
   projectNumbers,
 }: KanbanColumnProps) {
-  const config = KANBAN_STATUS_CONFIG[status];
-  const colorSet = kanbanColors[config.colorKey];
   const cardWidth = columnWidth - spacing.sm * 2;
 
   const renderCard = (item: KanbanItem) => (
@@ -92,11 +65,11 @@ export function KanbanColumn({
     </View>
   );
 
-  const showAddButton = status === KANBAN_STATUS.TODO && !!onAddProject;
+  const showAddButton = status === KANBAN_STATUS.WAITING && !!onAddProject;
 
   return (
     <View style={[styles.columnWrapper, { width: columnWidth }]}>
-      <ColumnTab label={config.label} count={count} colorSet={colorSet} />
+      <StatusPill status={status} />
 
       <ScrollView
         style={styles.scrollView}
@@ -136,44 +109,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     paddingHorizontal: spacing.sm,
     alignItems: 'center',
-  },
-  tabContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.background,
-    zIndex: 10,
-  },
-  tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: pillSizes.big.minHeight,
-    paddingHorizontal: pillSizes.big.paddingHorizontal,
-    paddingVertical: pillSizes.big.paddingVertical,
-    borderRadius: pillSizes.big.borderRadius,
-    borderWidth: pillSizes.big.borderWidth,
-    borderColor: colors.border,
-    gap: spacing.sm,
-  },
-  tabLabel: {
-    ...typography.body,
-    fontWeight: '700',
-    color: colors.text.primary,
-  },
-  countBadge: {
-    minWidth: pillSizes.small.minHeight,
-    height: pillSizes.small.minHeight,
-    borderRadius: pillSizes.small.minHeight / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xxs,
-    borderWidth: getLineThickness('thin'),
-    borderColor: colors.border,
-  },
-  countText: {
-    ...typography.caption,
-    fontWeight: '700',
-    color: colors.text.primary,
   },
   scrollView: {
     flex: 1,

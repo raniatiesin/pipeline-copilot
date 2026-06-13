@@ -64,7 +64,7 @@ function buildStageModules(): KanbanItem[] {
       description: 'Map recurring subjects across scenes',
       moduleId: 'entity-editor',
       icon: 'users',
-      status: KANBAN_STATUS.TODO,
+      status: KANBAN_STATUS.WAITING,
       order: 3,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -77,7 +77,7 @@ function buildStageModules(): KanbanItem[] {
       description: 'Assemble complete visual brief',
       moduleId: 'arc-assembler',
       icon: 'map',
-      status: KANBAN_STATUS.TODO,
+      status: KANBAN_STATUS.WAITING,
       order: 4,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -225,7 +225,7 @@ function StagesContent({
   const progress = Math.round((doneCount / 4) * 100);
 
   const showFooter =
-    focusedStatus !== KANBAN_STATUS.TODO &&
+    focusedStatus !== KANBAN_STATUS.WAITING &&
     focusedStatus !== KANBAN_STATUS.DONE &&
     footerPill != null;
 

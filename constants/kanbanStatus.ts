@@ -21,7 +21,7 @@ import type { KanbanStatus, KanbanStatusConfig } from '../types/kanban';
  * Ordered by workflow progression.
  */
 export const KANBAN_STATUS = {
-  TODO: 'todo',
+  WAITING: 'waiting',
   UP_NEXT: 'up-next',
   IN_PROGRESS: 'in-progress',
   IN_REVIEW: 'in-review',
@@ -32,7 +32,7 @@ export const KANBAN_STATUS = {
  * All statuses in workflow order for iteration.
  */
 export const KANBAN_STATUS_ORDER: KanbanStatus[] = [
-  KANBAN_STATUS.TODO,
+  KANBAN_STATUS.WAITING,
   KANBAN_STATUS.UP_NEXT,
   KANBAN_STATUS.IN_PROGRESS,
   KANBAN_STATUS.IN_REVIEW,
@@ -48,9 +48,9 @@ export const KANBAN_STATUS_ORDER: KanbanStatus[] = [
  * Maps status → label, short label, color key, and icon.
  */
 export const KANBAN_STATUS_CONFIG: Record<KanbanStatus, KanbanStatusConfig> = {
-  [KANBAN_STATUS.TODO]: {
-    label: 'To Do',
-    shortLabel: 'Todo',
+  [KANBAN_STATUS.WAITING]: {
+    label: 'Waiting',
+    shortLabel: 'Waiting',
     colorKey: 'gray',
     icon: 'circle',
   },

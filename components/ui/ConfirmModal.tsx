@@ -14,6 +14,7 @@
  *   confirmLabel     — text for the primary action button (default "Confirm")
  *   cancelLabel      — text for the cancel button (default "Cancel")
  *   destructive      — renders confirm button in error/red style
+ *   extraActions     — optional React node rendered above the button row
  *   onConfirm        — called when user taps the primary action
  *   onCancel         — called when user taps cancel or the backdrop
  *
@@ -43,6 +44,7 @@ export interface ConfirmModalProps {
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
+  extraActions?: React.ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -58,6 +60,7 @@ export function ConfirmModal({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   destructive = false,
+  extraActions,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
@@ -83,6 +86,12 @@ export function ConfirmModal({
         <View style={styles.card}>
           <Text style={styles.title}>{title}</Text>
           {!!message && <Text style={styles.message}>{message}</Text>}
+
+          {extraActions && (
+            <View style={styles.extraActionsContainer}>
+              {extraActions}
+            </View>
+          )}
 
           <View style={styles.buttonRow}>
             {/* Cancel */}
@@ -156,6 +165,12 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginBottom: spacing.xl,
     lineHeight: 22,
+  },
+
+  // ── Extra actions ────────────────────────────────────────────────
+  extraActionsContainer: {
+    marginBottom: spacing.md,
+    alignItems: 'center',
   },
 
   // ── Buttons ──────────────────────────────────────────────────────

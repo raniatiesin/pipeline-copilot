@@ -8,7 +8,7 @@ export function getActiveColumnStatus(items: KanbanItem[]): KanbanStatus {
   if (statuses.includes('up-next')) return 'up-next';
   if (statuses.includes('in-review')) return 'in-review';
   if (statuses.every((s) => s === 'done')) return 'done';
-  return 'todo';
+  return 'waiting';
 }
 
 /** Returns the item to act on when a column has multiple cards — first by MODULE_ORDER */

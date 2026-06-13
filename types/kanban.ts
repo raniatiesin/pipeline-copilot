@@ -19,7 +19,7 @@
 /**
  * Kanban column status values.
  */
-export type KanbanStatus = 'todo' | 'up-next' | 'in-progress' | 'in-review' | 'done';
+export type KanbanStatus = 'waiting' | 'up-next' | 'in-progress' | 'in-review' | 'done';
 
 /**
  * Display configuration for each status.

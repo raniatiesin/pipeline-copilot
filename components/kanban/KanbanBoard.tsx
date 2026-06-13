@@ -142,7 +142,7 @@ export function KanbanBoard({
               count={counts[status] || 0}
               onCardPress={onItemPress}
               columnWidth={columnWidth}
-              onAddProject={status === KANBAN_STATUS.TODO ? onAddProject : undefined}
+              onAddProject={status === KANBAN_STATUS.WAITING ? onAddProject : undefined}
               projectNumbers={projectNumbers}
             />
           </View>

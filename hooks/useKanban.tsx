@@ -12,33 +12,33 @@
 import { KANBAN_STATUS } from '@/constants/kanbanStatus';
 import type { CardStatuses, PipelineRow, StageCardStatus } from '@/lib/database';
 import {
-    DEFAULT_STAGE_STATUS,
-    createProject as dbCreateProject,
-    deleteProject as dbDeleteProject,
-    updateProject as dbUpdateProject,
-    deriveStageStatus,
-    getProject,
-    getProjects,
-    parseCardStatuses,
-    rowToProjectItem,
-    rowToStageItems,
-    watchProject,
-    watchProjects,
+  DEFAULT_STAGE_STATUS,
+  createProject as dbCreateProject,
+  deleteProject as dbDeleteProject,
+  updateProject as dbUpdateProject,
+  deriveStageStatus,
+  getProject,
+  getProjects,
+  parseCardStatuses,
+  rowToProjectItem,
+  rowToStageItems,
+  watchProject,
+  watchProjects,
 } from '@/lib/database';
 import type {
-    CreateProjectData,
-    KanbanContextValue,
-    KanbanItem,
-    KanbanStatus,
+  CreateProjectData,
+  KanbanContextValue,
+  KanbanItem,
+  KanbanStatus,
 } from '@/types/kanban';
 import React, {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from 'react';
 
 // ============================================
@@ -249,7 +249,7 @@ export function KanbanProvider({
         if (i > srcIdx) {
           const downstream = cardStatus(next, m);
           const downstreamStatus = deriveStageStatus(m, downstream, next);
-          if (downstreamStatus !== KANBAN_STATUS.TODO && downstreamStatus !== KANBAN_STATUS.UP_NEXT) {
+          if (downstreamStatus !== KANBAN_STATUS.WAITING && downstreamStatus !== KANBAN_STATUS.UP_NEXT) {
             next[m] = { ...downstream, isOutdated: true };
           }
         }
@@ -373,7 +373,7 @@ export function KanbanProvider({
       if (i > srcIdx) {
         const downstream = cardStatus(next, m);
         const downstreamStatus = deriveStageStatus(m, downstream, next);
-        if (downstreamStatus !== KANBAN_STATUS.TODO && downstreamStatus !== KANBAN_STATUS.UP_NEXT) {
+        if (downstreamStatus !== KANBAN_STATUS.WAITING && downstreamStatus !== KANBAN_STATUS.UP_NEXT) {
           next[m] = { ...downstream, isOutdated: true };
         }
       }

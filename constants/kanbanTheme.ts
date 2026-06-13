@@ -34,7 +34,7 @@ export const COLLAGE_LETTERBOX = colors.primary;
  * - purple (#a78bfa) → In Review
  */
 export const kanbanColors = {
-  /** To Do - Gray/Neutral */
+  /** Waiting - Gray/Neutral */
   gray: {
     background: '#f5f5f5',
     backgroundMuted: '#e8e8e8',
@@ -140,7 +140,7 @@ export const kanbanLayout = {
 
 /**
  * Left accent bar color per card status.
- * TODO → transparent (no bar); DONE uses accent at reduced opacity on the card wrapper.
+ * waiting → transparent (no bar); DONE uses accent at reduced opacity on the card wrapper.
  */
 export function getStatusAccentColor(status: KanbanStatus): string | null {
   switch (status) {
@@ -159,8 +159,8 @@ export function getStatusAccentColor(status: KanbanStatus): string | null {
 
 export function getStatusLabel(status: KanbanStatus): string {
   switch (status) {
-    case 'todo':
-      return 'TO DO';
+    case 'waiting':
+      return 'WAITING';
     case 'up-next':
       return 'UP NEXT';
     case 'in-progress':
