@@ -37,7 +37,7 @@ import React, { useCallback } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getLineThickness } from '../../constants/line';
 import { pillSizes } from '../../constants/pills';
-import { borderRadius, colors, shadows, spacing, typography } from '../../constants/theme';
+import { colors, shadows, spacing, typography } from '../../constants/theme';
 import { useSyncStatus } from '../../hooks/useSyncStatus';
 import type { NavigationTab } from '../../types/kanban';
 
@@ -79,8 +79,10 @@ export function NavigationHeader({
   const dotColor = syncStatus === 'online' ? colors.success : colors.error;
 
   const handleTabPress = useCallback((tab: NavigationTab, index: number) => {
-    // Don't navigate if it's the last tab (current page) or no route specified
-    if (index === tabs.length - 1 || !tab.route) return;
+    // Don't navigate if no route specified
+    // Only skip if it's the last tab AND there are multiple tabs (i.e. the current page)
+    if (!tab.route) return;
+    if (tabs.length > 1 && index === tabs.length - 1) return;
 
     // Haptic feedback for navigation
     if (Platform.OS !== 'web') {

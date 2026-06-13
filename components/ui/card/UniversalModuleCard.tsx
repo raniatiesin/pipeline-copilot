@@ -121,13 +121,12 @@ export const UniversalModuleCard = memo(function UniversalModuleCard({
         accessibilityHint={accessibilityHint}
         testID={testID}
       >
-        <View style={styles.cardBody}>
-          {accentColor ? (
-            <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
-          ) : (
-            <View style={styles.accentBarPlaceholder} />
-          )}
+        {/* Accent bar — positioned absolutely to span full card height */}
+        {accentColor ? (
+          <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
+        ) : null}
 
+        <View style={styles.cardBody}>
           <View style={styles.content}>
             <CardIdentityPill
               title={title}
@@ -187,22 +186,22 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
     gap: spacing.sm,
+    position: 'relative', // anchor for absolute accent bar
   },
   cardBody: {
     flexDirection: 'row',
-    minHeight: 80, // ensures accent bar has full height even when content is minimal
   },
   accentBar: {
-    width: 4,
-    alignSelf: 'stretch',
-    height: '100%', // spans the full height of the card body
-  },
-  accentBarPlaceholder: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
     width: 4,
   },
   content: {
     flex: 1,
     gap: spacing.xs,
+    marginLeft: spacing.sm, // space for the accent bar
   },
   progressBar: {
     marginHorizontal: spacing.sm,

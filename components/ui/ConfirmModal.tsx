@@ -31,6 +31,7 @@ import {
   View,
 } from 'react-native';
 
+import { pillSizes } from '@/constants/pills';
 import { borderRadius, colors, shadows, spacing, typography } from '@/constants/theme';
 
 // ============================================
@@ -76,7 +77,7 @@ export function ConfirmModal({
       statusBarTranslucent
       onRequestClose={onCancel}
     >
-      {/* Backdrop — dark overlay acts as the blur substitute */}
+      {/* Backdrop — dark overlay */}
       <TouchableWithoutFeedback onPress={handleBackdropPress}>
         <View style={styles.backdrop} />
       </TouchableWithoutFeedback>
@@ -105,11 +106,14 @@ export function ConfirmModal({
               <Text style={styles.cancelText}>{cancelLabel}</Text>
             </TouchableOpacity>
 
-            {/* Confirm */}
+            {/* Confirm (destructive = Delete) */}
             <TouchableOpacity
               onPress={onConfirm}
               activeOpacity={0.8}
-              style={[styles.confirmButton, destructive && styles.confirmDestructive]}
+              style={[
+                styles.confirmButton,
+                destructive && styles.confirmDestructive,
+              ]}
               accessibilityRole="button"
               accessibilityLabel={confirmLabel}
             >
@@ -125,14 +129,14 @@ export function ConfirmModal({
 }
 
 // ============================================
-// STYLES
+// STYLES — neobrutalist design system
 // ============================================
 
 const styles = StyleSheet.create({
   // ── Backdrop ─────────────────────────────────────────────────────
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
 
   // ── Centring wrapper ─────────────────────────────────────────────
@@ -143,11 +147,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
 
-  // ── Card ─────────────────────────────────────────────────────────
+  // ── Card ── colors.background (#fef4dd), 3px colors.border, borderRadius.lg, shadows.hard
   card: {
     width: '100%',
     maxWidth: 320,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     borderWidth: 3,
     borderColor: colors.border,
     borderRadius: borderRadius.lg,
@@ -169,20 +173,24 @@ const styles = StyleSheet.create({
 
   // ── Extra actions ────────────────────────────────────────────────
   extraActionsContainer: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     alignItems: 'center',
   },
 
-  // ── Buttons ──────────────────────────────────────────────────────
+  // ── Buttons — pillSizes.big geometry, 3px solid colors.border ────
   buttonRow: {
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
+
+  // Cancel — colors.surface bg, colors.text.primary text
   cancelButton: {
     flex: 1,
-    height: 48,
-    borderWidth: 3,
+    minHeight: pillSizes.big.minHeight,
+    paddingHorizontal: pillSizes.big.paddingHorizontal,
+    paddingVertical: pillSizes.big.paddingVertical,
+    borderWidth: pillSizes.big.borderWidth,
     borderColor: colors.border,
     borderRadius: borderRadius.md,
     alignItems: 'center',
@@ -193,25 +201,29 @@ const styles = StyleSheet.create({
     ...typography.button,
     color: colors.text.primary,
   },
+
+  // Confirm (default) — colors.accent (#69c2ef) bg, colors.primary text
   confirmButton: {
     flex: 1,
-    height: 48,
-    borderWidth: 3,
+    minHeight: pillSizes.big.minHeight,
+    paddingHorizontal: pillSizes.big.paddingHorizontal,
+    paddingVertical: pillSizes.big.paddingVertical,
+    borderWidth: pillSizes.big.borderWidth,
     borderColor: colors.border,
     borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
-    ...shadows.hard,
-  },
-  confirmDestructive: {
-    backgroundColor: colors.error,
-    borderColor: colors.error,
+    backgroundColor: colors.accent,
   },
   confirmText: {
     ...typography.button,
-    color: colors.text.inverse,
-    fontWeight: '800',
+    color: colors.text.primary,
+  },
+
+  // Confirm (destructive = Delete) — colors.error bg, colors.text.inverse text
+  confirmDestructive: {
+    backgroundColor: colors.error,
+    borderColor: colors.border,
   },
   confirmTextDestructive: {
     color: colors.text.inverse,
