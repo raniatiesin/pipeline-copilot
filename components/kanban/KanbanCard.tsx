@@ -160,7 +160,9 @@ export const KanbanCard = React.memo(function KanbanCard({
       <UniversalModuleCard
         onPress={handlePress}
         onLongPress={isProjectCard ? handleLongPress : undefined}
-        iconName={'film'}
+        // Project cards: no icon (uses project number instead of film icon to save space)
+        // Stage cards: uses default 'box' icon
+        iconName={isProjectCard ? undefined : 'box'}
         title={item.title}
         progressPercent={item.progress ?? 0}
         status={item.status}

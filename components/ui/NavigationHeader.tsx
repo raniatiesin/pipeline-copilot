@@ -128,7 +128,7 @@ export function NavigationHeader({
                 accessibilityLabel={`Navigate to ${tab.label}`}
               >
                 <View style={styles.tab}>
-                  <Text style={styles.tabText}>
+                  <Text style={styles.tabText} numberOfLines={1} ellipsizeMode="tail">
                     {tab.label}
                   </Text>
                 </View>
@@ -169,7 +169,8 @@ const styles = StyleSheet.create({
   tabRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    overflow: 'hidden',
+    flexWrap: 'nowrap',
     gap: spacing.xxs, // Better spacing for touch targets
   },
   tabTouchable: {

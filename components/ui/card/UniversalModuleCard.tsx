@@ -128,12 +128,28 @@ export const UniversalModuleCard = memo(function UniversalModuleCard({
 
         <View style={styles.cardBody}>
           <View style={styles.content}>
-            <CardIdentityPill
-              title={title}
-              iconName={iconName}
-              progressPercent={normalizedProgress}
-              isOutdated={isOutdated}
-            />
+            {iconName ? (
+              <CardIdentityPill
+                title={title}
+                iconName={iconName}
+                progressPercent={normalizedProgress}
+                isOutdated={isOutdated}
+              />
+            ) : (
+              <View style={styles.identityRow}>
+                {projectNumber != null && (
+                  <View style={styles.numberBadge}>
+                    <Text style={styles.numberBadgeText}>{projectNumber}</Text>
+                  </View>
+                )}
+                <View style={styles.titleWrapFlat}>
+                  <Text style={styles.titleFlat} numberOfLines={1}>{title}</Text>
+                </View>
+                <View style={styles.progressPill}>
+                  <Text style={styles.progressText}>{normalizedProgress}%</Text>
+                </View>
+              </View>
+            )}
 
             <CardProgressBar
               progress={normalizedProgress}
@@ -186,7 +202,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
     gap: spacing.sm,
-    position: 'relative', // anchor for absolute accent bar
+    position: 'relative',
   },
   cardBody: {
     flexDirection: 'row',
@@ -201,7 +217,54 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     gap: spacing.xs,
-    marginLeft: spacing.sm, // space for the accent bar
+    marginLeft: spacing.sm,
+  },
+  identityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  numberBadge: {
+    width: 58,
+    minHeight: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 6,
+  },
+  numberBadgeText: {
+    ...typography.subtitle,
+    fontWeight: '800',
+    color: colors.text.inverse,
+  },
+  titleWrapFlat: {
+    flex: 1,
+    minHeight: 34,
+    justifyContent: 'center',
+    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+  },
+  titleFlat: {
+    ...typography.subtitle,
+    color: colors.text.primary,
+    fontWeight: '700',
+  },
+  progressPill: {
+    minWidth: 58,
+    minHeight: 34,
+    borderWidth: 3,
+    borderColor: colors.border,
+    borderRadius: 6,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  progressText: {
+    ...typography.caption,
+    color: colors.text.primary,
+    fontWeight: '700',
   },
   progressBar: {
     marginHorizontal: spacing.sm,
